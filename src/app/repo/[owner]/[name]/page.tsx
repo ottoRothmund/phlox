@@ -126,40 +126,45 @@ export default async function RepositoryPage({
 
       <section className="grid border-b border-border sm:grid-cols-2 lg:grid-cols-4">
         {[
-          { label: "Stars", value: repository.stars.toLocaleString("en-US"), icon: Star },
-          { label: "Forks", value: repository.forks.toLocaleString("en-US"), icon: GitFork },
-          {
-            label: repository.growthEstimated ? "7-day estimate" : "7-day growth",
-            value: `${repository.growthEstimated ? "~" : ""}+${repository.starDelta7d.toLocaleString("en-US")}`,
-            icon: Star,
-          },
-          {
-            label: repository.contributorsEstimated ? "Contributor estimate" : "Contributors",
-            value: `${repository.contributorsEstimated ? "~" : ""}${repository.contributorCount.toLocaleString("en-US")}`,
-            icon: UsersThree,
-          },
-        ].map(({ label, value, icon: Icon }, index) => (
+          { label: "Stars", value: repository.stars.toLocaleString("en-US"), icon: Star, positive: false },
+          { label: "Forks", value: repository.forks.toLocaleString("en-US"), icon: GitFork, positive: false },
+          ...(!repository.growthEstimated
+            ? [{
+                label: "7-day growth",
+                value: `+${repository.starDelta7d.toLocaleString("en-US")}`,
+                icon: Star,
+                positive: true,
+              }]
+            : [{
+                label: "Watchers",
+                value: repository.watchers.toLocaleString("en-US"),
+                icon: UsersThree,
+                positive: false,
+              }]),
+          ...(!repository.contributorsEstimated
+            ? [{
+                label: "Contributors",
+                value: repository.contributorCount.toLocaleString("en-US"),
+                icon: UsersThree,
+                positive: false,
+              }]
+            : [{
+                label: "Open issues",
+                value: repository.openIssues.toLocaleString("en-US"),
+                icon: GitFork,
+                positive: false,
+              }]),
+        ].map(({ label, value, icon: Icon, positive }, index) => (
           <div key={label} className={`py-5 sm:px-5 ${index > 0 ? "sm:border-l sm:border-border" : ""}`}>
             <div className="flex items-center gap-2 text-xs text-muted"><Icon size={14} />{label}</div>
-            <p className={`mt-2 font-mono text-2xl font-medium tabular-nums ${label.startsWith("7-day") ? "text-positive" : ""}`}>{value}</p>
+            <p className={`mt-2 font-mono text-2xl font-medium tabular-nums ${positive ? "text-positive" : ""}`}>{value}</p>
           </div>
         ))}
       </section>
 
       <div className="grid gap-12 py-10 lg:grid-cols-[minmax(0,1fr)_320px]">
         <div className="order-2 min-w-0 lg:order-1">
-          <section>
-            <h2 className="text-xl font-semibold tracking-[-0.025em]">Topics and use cases</h2>
-            <div className="mt-5 grid gap-px border border-border bg-border sm:grid-cols-2">
-              {repository.topics.map((topic) => (
-                <Link key={topic} href={`/explore?topic=${topic}`} className="flex items-center justify-between bg-surface px-4 py-3 text-sm hover:bg-subtle">
-                  <span>{topicLabel(topic)}</span><ArrowSquareOut size={13} className="text-faint" />
-                </Link>
-              ))}
-            </div>
-          </section>
-
-          <div className="mt-12 border-t border-border pt-10">
+          <div>
             {readme ? (
               <RepositoryReadme
                 readme={readme}
@@ -203,8 +208,12 @@ export default async function RepositoryPage({
             <h2 className="text-sm font-semibold">Repository signals</h2>
             <dl className="mt-3 border-t border-border text-xs">
               {[
-                ["Open issues", repository.openIssues.toLocaleString("en-US")],
-                ["Watchers", repository.watchers.toLocaleString("en-US")],
+                ...(!repository.contributorsEstimated
+                  ? [["Open issues", repository.openIssues.toLocaleString("en-US")]]
+                  : []),
+                ...(!repository.growthEstimated
+                  ? [["Watchers", repository.watchers.toLocaleString("en-US")]]
+                  : []),
                 ["Created", formatDate(repository.createdAt)],
                 ["Last push", formatDate(repository.pushedAt)],
                 ["License", repository.license],
@@ -216,6 +225,22 @@ export default async function RepositoryPage({
               ))}
             </dl>
           </section>
+          {repository.topics.length > 0 ? (
+            <section>
+              <h2 className="text-sm font-semibold">Topics</h2>
+              <div className="mt-3 flex flex-wrap gap-1.5">
+                {repository.topics.map((topic) => (
+                  <Link
+                    key={topic}
+                    href={`/explore?topic=${topic}`}
+                    className="border border-border bg-surface px-2 py-1 text-xs text-muted hover:bg-subtle hover:text-foreground"
+                  >
+                    {topicLabel(topic)}
+                  </Link>
+                ))}
+              </div>
+            </section>
+          ) : null}
           {repository.homepage ? (
             <a href={repository.homepage} target="_blank" rel="noreferrer" className="button-secondary h-9 w-full px-3">
               Project website <ArrowSquareOut size={13} />

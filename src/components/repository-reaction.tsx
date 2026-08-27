@@ -123,9 +123,11 @@ export function RepositoryReaction({
         >
           <Icon size={15} weight={reaction === value ? "fill" : "regular"} />
           <span className={compact ? "sr-only" : undefined}>{label}</span>
-          <span className="font-mono tabular-nums">
-            {value === "like" ? counts.likes : counts.dislikes}
-          </span>
+          {(value === "like" ? counts.likes : counts.dislikes) > 0 ? (
+            <span className="font-mono tabular-nums">
+              {value === "like" ? counts.likes : counts.dislikes}
+            </span>
+          ) : null}
         </button>
       ))}
     </div>

@@ -133,6 +133,34 @@ export function buildGitHubSearchQuery(query: string): string {
     : `${normalized} is:public`;
 }
 
+function isoDaysAgo(days: number): string {
+  return new Date(Date.now() - days * 86_400_000).toISOString().slice(0, 10);
+}
+
+/**
+ * Shape the candidate pool for discovery sorts. GitHub best-match on a bare
+ * stars qualifier returns the same famous mega-repositories every time, so a
+ * "rising" feed built from it can only ever rerank giants. Restricting the
+ * pool — young repositories for rising, recently pushed for trending — gives
+ * the client-side velocity scoring something real to rank. User-supplied
+ * created:/pushed: qualifiers are respected and never overridden.
+ */
+export function buildDiscoveryPoolQuery(
+  query: string,
+  sort: RepositorySort,
+): string {
+  const hasQualifier = (name: string) =>
+    new RegExp(`(^|\\s)${name}:`, "i").test(query);
+
+  if (sort === "rising" && !hasQualifier("created")) {
+    return `${query} created:>${isoDaysAgo(270)}`.trim();
+  }
+  if (sort === "trending" && !hasQualifier("pushed")) {
+    return `${query} pushed:>${isoDaysAgo(14)}`.trim();
+  }
+  return query;
+}
+
 export function isPublicGitHubRepository(
   repository: GitHubRepositoryApi,
 ): boolean {
@@ -148,10 +176,12 @@ export async function searchGitHubRepositories(
   const githubSort =
     sort === "updated"
       ? "&sort=updated&order=desc"
-      : sort === "stars"
-        ? "&sort=stars&order=desc"
-        : "";
-  const publicQuery = buildGitHubSearchQuery(query);
+      : sort === "relevance"
+        ? ""
+        : "&sort=stars&order=desc";
+  const publicQuery = buildGitHubSearchQuery(
+    buildDiscoveryPoolQuery(query, sort),
+  );
   const response = await fetch(
     `https://api.github.com/search/repositories?q=${encodeURIComponent(publicQuery)}${githubSort}&per_page=${limit}`,
     {

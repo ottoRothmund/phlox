@@ -91,10 +91,11 @@ export function RepositoryRow({
               {compactNumber(repository.forks)}
             </span>
           </div>
-          <p className="mt-1.5 font-mono text-[11px] tabular-nums text-positive">
-            {repository.growthEstimated ? "~" : ""}+
-            {repository.starDelta7d.toLocaleString("en-US")} {repository.growthEstimated ? "est. " : ""}this week
-          </p>
+          {!repository.growthEstimated ? (
+            <p className="mt-1.5 font-mono text-[11px] tabular-nums text-positive">
+              +{repository.starDelta7d.toLocaleString("en-US")} this week
+            </p>
+          ) : null}
         </div>
         <RepositoryReaction
           fullName={repository.fullName}

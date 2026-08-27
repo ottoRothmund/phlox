@@ -67,6 +67,45 @@ describe("repository discovery", () => {
     );
   });
 
+  it("demotes mega repositories in rising even with huge absolute growth", () => {
+    const giant: Repository = {
+      ...repositories[1],
+      id: 10,
+      owner: "freeCodeCamp",
+      name: "freeCodeCamp",
+      fullName: "freeCodeCamp/freeCodeCamp",
+      stars: 420_000,
+      starDelta7d: 1_500,
+    };
+    const smallFast: Repository = {
+      ...repositories[0],
+      id: 11,
+      owner: "tiny",
+      name: "comet",
+      fullName: "tiny/comet",
+      stars: 2_400,
+      starDelta7d: 400,
+    };
+
+    const ranked = sortRepositories([giant, smallFast], "rising");
+    expect(ranked[0].fullName).toBe("tiny/comet");
+  });
+
+  it("keeps noise repositories with a handful of stars from topping rising", () => {
+    const noise: Repository = {
+      ...repositories[0],
+      id: 12,
+      owner: "someone",
+      name: "new-thing",
+      fullName: "someone/new-thing",
+      stars: 9,
+      starDelta7d: 8,
+    };
+
+    const ranked = sortRepositories([noise, repositories[0]], "rising");
+    expect(ranked[0].fullName).toBe("voidtools/orbit");
+  });
+
   it("sorts popular repositories by star count", () => {
     expect(sortRepositories(repositories, "stars")[0].fullName).toBe(
       "debian/debian",

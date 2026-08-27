@@ -201,7 +201,7 @@ describe("GitHub repository mapping", () => {
     ]);
   });
 
-  it("preserves GitHub relevance candidates for relevance and rising sorts", async () => {
+  it("keeps best-match ordering for relevance but pools young repositories for rising", async () => {
     const fetchMock = vi.fn().mockImplementation(() =>
       Promise.resolve(
         new Response(JSON.stringify({ items: [githubRepository] }), {
@@ -213,11 +213,23 @@ describe("GitHub repository mapping", () => {
 
     await searchGitHubRepositories("forge", "relevance");
     await searchGitHubRepositories("forge", "rising");
+    await searchGitHubRepositories("forge created:>2020-01-01", "rising");
+    await searchGitHubRepositories("forge", "trending");
 
-    for (const [url] of fetchMock.mock.calls) {
-      expect(String(url)).not.toContain("sort=stars");
-      expect(String(url)).not.toContain("sort=updated");
-    }
+    const [relevanceUrl, risingUrl, risingPinnedUrl, trendingUrl] =
+      fetchMock.mock.calls.map(([url]) => decodeURIComponent(String(url)));
+
+    expect(relevanceUrl).not.toContain("sort=");
+    expect(relevanceUrl).not.toContain("created:>");
+
+    expect(risingUrl).toContain("sort=stars");
+    expect(risingUrl).toContain("created:>");
+
+    // A user-supplied created: qualifier is never overridden.
+    expect(risingPinnedUrl).toContain("created:>2020-01-01");
+    expect(risingPinnedUrl.match(/created:/g)).toHaveLength(1);
+
+    expect(trendingUrl).toContain("pushed:>");
   });
 
   it("does not infer verification from a repository's star count", () => {

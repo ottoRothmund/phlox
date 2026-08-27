@@ -46,8 +46,6 @@ export default async function Home() {
   const underTheRadar = queryMockRepositories({ sort: "rising" })
     .filter((repository) => repository.stars < 10_000)
     .slice(0, 4);
-  const totalStars = rising.reduce((sum, repository) => sum + repository.stars, 0);
-  const weeklyStars = rising.reduce((sum, repository) => sum + repository.starDelta7d, 0);
   const topLanguage = rising[0]?.language ?? "";
 
   return (
@@ -100,23 +98,6 @@ export default async function Home() {
                   ethereum rust
                 </Link>
               </div>
-              <dl className="mt-10 grid max-w-lg grid-cols-3 gap-px border border-border bg-border">
-                {[
-                  { label: "Tracked this week", value: rising.length.toString() },
-                  { label: "Combined stars", value:
-                      totalStars >= 1000
-                        ? `${Math.round(totalStars / 100) / 10}k`
-                        : totalStars.toString() },
-                  { label: "New stars / week", value: `+${weeklyStars.toLocaleString("en-US")}` },
-                ].map((stat) => (
-                  <div key={stat.label} className="bg-surface px-4 py-3">
-                    <dt className="text-[10px] font-medium uppercase tracking-[0.08em] text-muted">
-                      {stat.label}
-                    </dt>
-                    <dd className="mt-1 font-mono text-lg tabular-nums">{stat.value}</dd>
-                  </div>
-                ))}
-              </dl>
             </div>
           </div>
 

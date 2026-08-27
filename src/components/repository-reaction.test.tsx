@@ -110,6 +110,20 @@ describe("repository reactions", () => {
     ).toHaveAttribute("aria-pressed", "false");
   });
 
+  it("hides zero counts until a repository has real reactions", () => {
+    render(<RepositoryReaction fullName="northstar/forge" />);
+
+    const group = screen.getByRole("group", {
+      name: "React to northstar/forge",
+    });
+    expect(within(group).queryByText("0")).not.toBeInTheDocument();
+
+    fireEvent.click(
+      screen.getByRole("button", { name: "Like northstar/forge" }),
+    );
+    expect(within(group).getByText("1")).toBeInTheDocument();
+  });
+
   it("shows shared counts and replaces them with the server result", async () => {
     const fetchMock = vi.fn().mockResolvedValue(
       new Response(

@@ -33,13 +33,44 @@ export interface Repository {
   htmlUrl?: string;
 }
 
+/**
+ * Above this size a repository is treated as "already found": it gets
+ * quadratically demoted in the Rising feed no matter how many absolute
+ * stars it adds, because a discovery feed listing freeCodeCamp is noise.
+ */
+const MEGA_REPOSITORY_STARS = 50_000;
+
+/**
+ * Bayesian prior added to a repository's prior size when computing relative
+ * velocity, so near-zero-star repositories cannot post absurd growth ratios.
+ */
+const STAR_PRIOR = 50;
+
+/**
+ * Rising ranks by relative velocity: weekly growth as a fraction of the
+ * repository's prior size. Two dampeners keep it honest — a Bayesian size
+ * prior in the denominator so a 9-star repo gaining 8 stars does not post
+ * an 800% week, and a confidence factor on small absolute deltas. The
+ * mega-repository demotion keeps giants from winning on volume.
+ */
 function risingScore(repository: Repository): number {
   const previousStars = Math.max(repository.stars - repository.starDelta7d, 1);
-  return repository.starDelta7d / Math.sqrt(previousStars);
+  const relativeVelocity =
+    repository.starDelta7d / (previousStars + STAR_PRIOR);
+  const signalConfidence =
+    repository.starDelta7d / (repository.starDelta7d + 30);
+  const megaDemotion =
+    1 / (1 + (repository.stars / MEGA_REPOSITORY_STARS) ** 2);
+  return relativeVelocity * signalConfidence * megaDemotion;
 }
 
+/**
+ * Trending allows size back in: absolute weekly growth dampened by sqrt
+ * of prior size. Large repositories can rank here, just not for free.
+ */
 function trendingScore(repository: Repository): number {
-  return risingScore(repository) * 0.7 + Math.log10(repository.stars + 1) * 0.3;
+  const previousStars = Math.max(repository.stars - repository.starDelta7d, 1);
+  return repository.starDelta7d / Math.sqrt(previousStars);
 }
 
 export function filterRepositories(
