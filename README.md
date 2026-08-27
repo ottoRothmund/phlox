@@ -1,36 +1,57 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Phlox
 
-## Getting Started
+Phlox is a modern discovery platform for GitHub repositories. It focuses on rising projects, useful niches, topic exploration, related repositories, personal reactions, and collections.
 
-First, run the development server:
+## Stack
+
+- Next.js 16 with the App Router and React Server Components
+- React 19 and TypeScript
+- Tailwind CSS 4 with semantic theme tokens
+- Phosphor icons
+- Vitest and Testing Library
+- GitHub REST API with a curated local fallback index
+
+## Local development
 
 ```bash
+npm install
 npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+Open [http://localhost:3000](http://localhost:3000).
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+GitHub search works without authentication, but the public rate limit is low. Copy `.env.example` to `.env.local` and add a fine-grained GitHub token for higher limits:
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+```bash
+cp .env.example .env.local
+```
 
-## Learn More
+Do not commit `.env.local`.
 
-To learn more about Next.js, take a look at the following resources:
+## Quality gates
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+```bash
+npm test
+npm run lint
+npm run typecheck
+npm run build
+```
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+## Project structure
 
-## Deploy on Vercel
+```text
+src/app/          Routes, layouts, loading, error, and API handlers
+src/components/   Reusable interface and client interaction components
+src/lib/          GitHub adapters, repository ranking, mock index, collections
+src/test/         Shared test setup
+```
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+## Data behavior
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+- Search queries use the GitHub REST API on the server.
+- API failures and rate limits fall back to the typed local discovery index.
+- Explore feeds use deterministic local signals so the first version remains stable.
+- Likes, dislikes, and collections are persisted in browser local storage.
+- `GET /api/github/search?q=rust&sort=rising` exposes the same search service as JSON.
+
+The local index contains realistic public repository metadata and clearly identifies itself in the interface as a curated index.

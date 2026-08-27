@@ -1,26 +1,258 @@
 @import "tailwindcss";
 
-:root {
-  --background: #ffffff;
-  --foreground: #171717;
+:root,
+:root[data-theme="light"] {
+  --background: #f7f7f5;
+  --surface: #fcfcfb;
+  --subtle: #f0f0ed;
+  --border: #deded9;
+  --foreground: #171716;
+  --muted: #686864;
+  --faint: #9a9a94;
+  --positive: #4f6b49;
+  --negative: #a23b32;
+  --language-c: #315f8c;
+  --language-csharp: #6f468f;
+  --language-cpp: #8c3c65;
+  --language-css: #6f45a5;
+  --language-dart: #06758b;
+  --language-elixir: #654990;
+  --language-go: #00758a;
+  --language-haskell: #76508f;
+  --language-html: #9a3f1f;
+  --language-java: #a43a2c;
+  --language-javascript: #756000;
+  --language-kotlin: #7d4599;
+  --language-lua: #3d56a0;
+  --language-nix: #3e679d;
+  --language-php: #595f9b;
+  --language-python: #2e5f94;
+  --language-ruby: #a33535;
+  --language-rust: #9a3412;
+  --language-scala: #a93636;
+  --language-shell: #3e7148;
+  --language-swift: #a94427;
+  --language-typescript: #245aa5;
+  --language-zig: #8a5c16;
+  --language-other: var(--foreground);
 }
 
 @theme inline {
   --color-background: var(--background);
+  --color-surface: var(--surface);
+  --color-subtle: var(--subtle);
+  --color-border: var(--border);
   --color-foreground: var(--foreground);
+  --color-muted: var(--muted);
+  --color-faint: var(--faint);
+  --color-positive: var(--positive);
+  --color-negative: var(--negative);
   --font-sans: var(--font-geist-sans);
   --font-mono: var(--font-geist-mono);
 }
 
+:root[data-theme="dark"] {
+  --background: #111110;
+  --surface: #171716;
+  --subtle: #20201e;
+  --border: #333330;
+  --foreground: #efefec;
+  --muted: #a4a49e;
+  --faint: #70706b;
+  --positive: #91aa89;
+  --negative: #e58d85;
+  --language-c: #8eb8e4;
+  --language-csharp: #c6a0df;
+  --language-cpp: #df9abb;
+  --language-css: #c5a1ed;
+  --language-dart: #67c8d7;
+  --language-elixir: #c0a2dd;
+  --language-go: #63cdda;
+  --language-haskell: #c8a6dd;
+  --language-html: #ed9b78;
+  --language-java: #ef9588;
+  --language-javascript: #e4cb65;
+  --language-kotlin: #d1a0e5;
+  --language-lua: #9eaded;
+  --language-nix: #91b6e4;
+  --language-php: #aeb3e5;
+  --language-python: #83b7ec;
+  --language-ruby: #ed9696;
+  --language-rust: #f29d72;
+  --language-scala: #ed9696;
+  --language-shell: #94c69b;
+  --language-swift: #f1a185;
+  --language-typescript: #8cb4ff;
+  --language-zig: #dfbd78;
+}
+
+:root[data-theme="dark"] .phlox-logo {
+  filter: invert(1);
+}
+
 @media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
+  :root:not([data-theme]) {
+    --background: #111110;
+    --surface: #171716;
+    --subtle: #20201e;
+    --border: #333330;
+    --foreground: #efefec;
+    --muted: #a4a49e;
+    --faint: #70706b;
+    --positive: #91aa89;
+    --negative: #e58d85;
+    --language-c: #8eb8e4;
+    --language-csharp: #c6a0df;
+    --language-cpp: #df9abb;
+    --language-css: #c5a1ed;
+    --language-dart: #67c8d7;
+    --language-elixir: #c0a2dd;
+    --language-go: #63cdda;
+    --language-haskell: #c8a6dd;
+    --language-html: #ed9b78;
+    --language-java: #ef9588;
+    --language-javascript: #e4cb65;
+    --language-kotlin: #d1a0e5;
+    --language-lua: #9eaded;
+    --language-nix: #91b6e4;
+    --language-php: #aeb3e5;
+    --language-python: #83b7ec;
+    --language-ruby: #ed9696;
+    --language-rust: #f29d72;
+    --language-scala: #ed9696;
+    --language-shell: #94c69b;
+    --language-swift: #f1a185;
+    --language-typescript: #8cb4ff;
+    --language-zig: #dfbd78;
+  }
+
+  :root:not([data-theme]) .phlox-logo {
+    filter: invert(1);
   }
 }
 
+* {
+  box-sizing: border-box;
+}
+
+html {
+  background: var(--background);
+}
+
 body {
+  margin: 0;
   background: var(--background);
   color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  font-family: var(--font-geist-sans), sans-serif;
+  text-rendering: optimizeLegibility;
+}
+
+button,
+input,
+textarea,
+select {
+  font: inherit;
+}
+
+button,
+summary,
+a {
+  -webkit-tap-highlight-color: transparent;
+}
+
+::selection {
+  background: var(--foreground);
+  color: var(--surface);
+}
+
+:focus-visible {
+  outline: 2px solid var(--foreground);
+  outline-offset: 2px;
+}
+
+.input {
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  background: var(--surface);
+  color: var(--foreground);
+  font-size: 0.8125rem;
+  transition: border-color 140ms ease, background-color 140ms ease;
+}
+
+.input::placeholder {
+  color: var(--faint);
+}
+
+.input:hover,
+.input:focus {
+  border-color: var(--muted);
+}
+
+.button-primary,
+.button-secondary,
+.button-ghost {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.4rem;
+  border-radius: 4px;
+  font-size: 0.8125rem;
+  font-weight: 550;
+  line-height: 1;
+  white-space: nowrap;
+  transition: background-color 140ms ease, border-color 140ms ease,
+    color 140ms ease, transform 100ms ease;
+}
+
+.button-primary:active,
+.button-secondary:active,
+.button-ghost:active {
+  transform: translateY(1px);
+}
+
+.button-primary {
+  border: 1px solid var(--foreground);
+  background: var(--foreground);
+  color: var(--surface);
+}
+
+.button-primary:hover {
+  opacity: 0.88;
+}
+
+.button-secondary {
+  border: 1px solid var(--border);
+  background: var(--surface);
+  color: var(--foreground);
+}
+
+.button-secondary:hover {
+  border-color: var(--muted);
+  background: var(--subtle);
+}
+
+.button-ghost {
+  border: 1px solid transparent;
+  background: transparent;
+  color: var(--foreground);
+}
+
+.button-ghost:hover {
+  background: var(--subtle);
+}
+
+.save-menu[open] > summary {
+  border-color: var(--muted);
+  background: var(--subtle);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    scroll-behavior: auto !important;
+    transition-duration: 0.01ms !important;
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+  }
 }
