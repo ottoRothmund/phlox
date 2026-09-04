@@ -42,8 +42,8 @@ export function RepositoryRow({
   const avatar = repository.avatarUrl ?? `https://github.com/${repository.owner}.png?size=80`;
 
   return (
-    <article className="group grid grid-cols-[auto_minmax(0,1fr)_auto] items-start gap-x-3 gap-y-3 border-b border-border py-4 first:border-t sm:py-5 lg:grid-cols-[36px_auto_minmax(0,1fr)_auto] lg:gap-x-4">
-      <div className="hidden pt-1 font-mono text-xs tabular-nums text-faint lg:col-start-1 lg:row-start-1 lg:block">
+    <article className="group grid grid-cols-[auto_minmax(0,1fr)_auto] items-start gap-x-3 gap-y-3 border-b border-border py-4 first:border-t sm:py-5 lg:grid-cols-[52px_auto_minmax(0,1fr)_auto] lg:gap-x-4">
+      <div className="hidden pt-0.5 font-mono text-[19px] font-semibold leading-6 tabular-nums tracking-[-0.03em] text-faint lg:col-start-1 lg:row-start-1 lg:block">
         {rank ? `#${rank}` : ""}
       </div>
       {/* eslint-disable-next-line @next/next/no-img-element -- remote GitHub avatars, sized by the CDN */}
@@ -56,7 +56,7 @@ export function RepositoryRow({
         decoding="async"
         className="col-start-1 row-start-1 mt-0.5 h-9 w-9 shrink-0 rounded-[6px] border border-border bg-subtle object-cover sm:h-10 sm:w-10 lg:col-start-2"
       />
-      <div className="col-start-2 row-start-1 min-w-0 sm:row-span-2 lg:col-start-3">
+      <div className="col-start-2 row-start-1 min-w-0 lg:col-start-3">
         <div className="flex min-w-0 items-start gap-2">
           <Link
             href={`/repo/${repository.owner}/${repository.name}`}
@@ -107,8 +107,10 @@ export function RepositoryRow({
         </div>
       </div>
 
-      {/* Stars and forks sit top-right, level with the repository name. */}
-      <div className="col-start-3 row-start-1 flex items-center gap-3 pt-0.5 font-mono text-xs tabular-nums sm:gap-4 lg:col-start-4">
+      {/* Counts and actions share one top-right cluster, level with the name.
+          On phones there is no room beside the description, so the whole
+          cluster drops to its own right-aligned row. */}
+      <div className="col-span-3 row-start-2 flex flex-wrap items-center justify-end gap-x-3 gap-y-2 font-mono text-xs tabular-nums sm:col-span-1 sm:col-start-3 sm:row-start-1 sm:gap-x-4 lg:col-start-4">
         <span
           className="inline-flex items-center gap-1"
           title={`${repository.stars.toLocaleString("en-US")} stars`}
@@ -131,17 +133,14 @@ export function RepositoryRow({
             +{compactNumber(repository.starDelta7d)}
           </span>
         ) : null}
-      </div>
-
-      {/* Actions tuck under the counts on wide screens, and drop to their own
-          row on phones where there is no space beside the description. */}
-      <div className="col-span-3 row-start-2 flex items-center justify-end gap-2 sm:col-span-1 sm:col-start-3 sm:self-end sm:pb-0.5 lg:col-start-4">
-        <RepositoryReaction
-          fullName={repository.fullName}
-          initialCounts={reactionCounts}
-          compact
-        />
-        <SaveRepositoryButton repository={repository} />
+        <span className="ml-auto inline-flex items-center gap-2 sm:ml-1">
+          <RepositoryReaction
+            fullName={repository.fullName}
+            initialCounts={reactionCounts}
+            compact
+          />
+          <SaveRepositoryButton repository={repository} />
+        </span>
       </div>
     </article>
   );
