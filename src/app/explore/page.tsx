@@ -9,19 +9,16 @@ import { getTopicCatalog, topicLabel } from "@/lib/phlox-data";
 import { mergeTopicCatalog } from "@/lib/repository-taxonomy";
 import { searchRepositories } from "@/lib/repository-service";
 import {
-  isRepositorySort,
-  parseAgeWindow,
-  parseStarFloor,
-  type RepositorySort,
-} from "@/lib/repositories";
+  buildFilterHref,
+  firstParam,
+  parseRepositoryFilters,
+  writeRepositoryFilters,
+} from "@/lib/search-params";
+import { isRepositorySort, type RepositorySort } from "@/lib/repositories";
 
 export const metadata: Metadata = { title: "Explore" };
 
 const commonLanguages = ["Rust", "Go", "TypeScript", "Python", "Nix", "Zig"];
-
-function first(value: string | string[] | undefined): string {
-  return Array.isArray(value) ? value[0] || "" : value || "";
-}
 
 export default async function ExplorePage({
   searchParams,
@@ -29,13 +26,12 @@ export default async function ExplorePage({
   searchParams: Promise<Record<string, string | string[] | undefined>>;
 }) {
   const params = await searchParams;
-  const requestedSort = first(params.sort);
+  const requestedSort = firstParam(params.sort);
   const sort: RepositorySort = isRepositorySort(requestedSort) ? requestedSort : "rising";
-  const topic = first(params.topic);
-  const language = first(params.language);
-  const query = first(params.q);
-  const minStars = parseStarFloor(first(params.stars));
-  const maxAgeDays = parseAgeWindow(first(params.age));
+  const topic = firstParam(params.topic);
+  const language = firstParam(params.language);
+  const query = firstParam(params.q);
+  const filters = parseRepositoryFilters(params);
   const discoveryQuery = query || (!topic && !language ? "stars:>50" : "");
   const [result, discoveredTopics] = await Promise.all([
     searchRepositories({
@@ -43,7 +39,7 @@ export default async function ExplorePage({
       sort,
       topic,
       language,
-      filters: { minStars, maxAgeDays },
+      filters,
       limit: 30,
       preferLive: true,
     }),
@@ -64,24 +60,15 @@ export default async function ExplorePage({
     ]),
   ].slice(0, 16);
 
-  const hrefFor = (changes: {
-    sort?: RepositorySort;
-    minStars?: number;
-    maxAgeDays?: number;
-  }) => {
-    const nextSort = changes.sort ?? sort;
-    const nextStars = changes.minStars ?? minStars;
-    const nextAge = changes.maxAgeDays ?? maxAgeDays;
-    const next = new URLSearchParams();
-    if (nextSort !== "rising") next.set("sort", nextSort);
-    if (topic) next.set("topic", topic);
-    if (language) next.set("language", language);
-    if (query) next.set("q", query);
-    if (nextStars > 0) next.set("stars", String(nextStars));
-    if (nextAge > 0) next.set("age", String(nextAge));
-    const serialized = next.toString();
-    return serialized ? `/explore?${serialized}` : "/explore";
-  };
+  const hrefFor: Parameters<typeof SortControls>[0]["hrefFor"] = (changes) =>
+    buildFilterHref({
+      pathname: "/explore",
+      sort,
+      defaultSort: "rising",
+      filters,
+      base: { topic, language, q: query },
+      changes,
+    });
 
   const sourceLabel =
     result.source === "github"
@@ -89,17 +76,18 @@ export default async function ExplorePage({
       : result.source === "phlox"
         ? "ranked by Phlox likes"
         : "indexed fallback";
-  const facetHref = (drop: "topic" | "language" | "q") => {
-    const next = new URLSearchParams();
-    if (sort !== "rising") next.set("sort", sort);
-    if (topic && drop !== "topic") next.set("topic", topic);
-    if (language && drop !== "language") next.set("language", language);
-    if (query && drop !== "q") next.set("q", query);
-    if (minStars > 0) next.set("stars", String(minStars));
-    if (maxAgeDays > 0) next.set("age", String(maxAgeDays));
-    const serialized = next.toString();
-    return serialized ? `/explore?${serialized}` : "/explore";
-  };
+  const facetHref = (drop: "topic" | "language" | "q") =>
+    buildFilterHref({
+      pathname: "/explore",
+      sort,
+      defaultSort: "rising",
+      filters,
+      base: {
+        topic: drop === "topic" ? "" : topic,
+        language: drop === "language" ? "" : language,
+        q: drop === "q" ? "" : query,
+      },
+    });
   const activeFacets = [
     ...(topic ? [{ key: "topic", label: topicLabel(topic), clearHref: facetHref("topic") }] : []),
     ...(language ? [{ key: "language", label: language, clearHref: facetHref("language") }] : []),
@@ -124,16 +112,14 @@ export default async function ExplorePage({
             language={language}
             sort={sort}
             query={query}
-            minStars={minStars}
-            maxAgeDays={maxAgeDays}
+            filters={filters}
           />
         </aside>
 
         <div className="min-w-0">
           <SortControls
             sort={sort}
-            minStars={minStars}
-            maxAgeDays={maxAgeDays}
+            filters={filters}
             hrefFor={hrefFor}
             sorts={["rising", "trending", "stars", "forks", "likes", "newest", "updated"]}
           />
@@ -165,8 +151,11 @@ export default async function ExplorePage({
               {sort !== "rising" ? <input type="hidden" name="sort" value={sort} /> : null}
               {topic ? <input type="hidden" name="topic" value={topic} /> : null}
               {language ? <input type="hidden" name="language" value={language} /> : null}
-              {minStars > 0 ? <input type="hidden" name="stars" value={minStars} /> : null}
-              {maxAgeDays > 0 ? <input type="hidden" name="age" value={maxAgeDays} /> : null}
+              {[...writeRepositoryFilters(new URLSearchParams(), filters)].map(
+                ([name, value]) => (
+                  <input key={name} type="hidden" name={name} value={value} />
+                ),
+              )}
               <input
                 type="search"
                 name="q"

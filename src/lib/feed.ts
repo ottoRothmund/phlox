@@ -202,6 +202,30 @@ export function planFeedQueries(
 }
 
 /**
+ * A feed card is one repository filling the screen, so a repository with
+ * nothing to show wastes a whole card. This drops the ones that would render
+ * as a giant name over empty space: no description, no topics, or an empty
+ * shell nobody has touched.
+ *
+ * `description` is normalized upstream to "No description provided.", so the
+ * placeholder is checked rather than an empty string.
+ */
+export function isFeedWorthy(repository: Repository): boolean {
+  const description = repository.description.trim();
+  const hasDescription =
+    description.length >= 12 && !/^no description provided\.?$/i.test(description);
+  if (!hasDescription) return false;
+  // A repository with no topics and almost no forks or watchers is usually a
+  // dump, a mirror, or an unfinished experiment.
+  const hasContext =
+    repository.topics.length > 0 ||
+    repository.forks > 0 ||
+    repository.watchers > 1 ||
+    repository.homepage !== undefined;
+  return hasContext;
+}
+
+/**
  * Interleave lane results into one batch, dropping anything the visitor has
  * already seen and anything that appears twice. Order within the batch is
  * shuffled by seed so consecutive cards do not all come from one lane.
@@ -218,7 +242,7 @@ export function assembleFeedBatch(
   const random = seededRandom(seed ^ 0x9e3779b9);
   const queues = lanes.map(({ plan, repositories }) => ({
     plan,
-    repositories: [...repositories],
+    repositories: repositories.filter(isFeedWorthy),
   }));
   const items: FeedItem[] = [];
 

@@ -66,7 +66,7 @@ src/test/         Shared test setup
 - API failures and rate limits fall back to the typed local discovery index.
 - Explore feeds use deterministic local signals so the first version remains stable.
 - Likes, dislikes, and collections are persisted in browser local storage.
-- `GET /api/github/search?q=rust&sort=rising` exposes the same search service as JSON. Optional `stars` (100, 1000, 10000) and `age` (7, 30, 365 days) filters apply to every sort.
+- `GET /api/github/search?q=rust&sort=rising` exposes the same search service as JSON. Every filter below works as a query parameter.
 - `POST /api/feed` with `{ taste, exclude, seed }` returns one feed batch. Rate-limited to 8 batches/minute globally with a token (3 without), since each batch is three GitHub searches.
 
 ## Sorting
@@ -85,5 +85,22 @@ Explore and Search share one sort list (`sortOptions` in `src/lib/repositories.t
 | Best match | GitHub's own ranking, search only |
 
 Locally reranked sorts fetch a 2× pool (max 60) so there is something to reorder beyond GitHub's top-N. Collections have their own client-side sort (saved order, stars, forks, newest, active, name).
+
+## Filters
+
+Every filter is a URL parameter, so any combination is linkable and works without JavaScript. Each one is pushed to GitHub as a search qualifier and re-checked locally, so the indexed fallback agrees with the live results.
+
+| Parameter | Values | GitHub qualifier |
+| --- | --- | --- |
+| `stars` | 100, 1000, 10000, 50000 | `stars:>=N` |
+| `forks` | 10, 100, 1000 | `forks:>=N` |
+| `age` | 7, 30, 365, 1095 (days since creation) | `created:>=DATE` |
+| `active` | 7, 30, 365 (days since last push) | `pushed:>=DATE` |
+| `license` | `mit`, `apache-2.0`, `gpl-3.0`, `agpl-3.0`, `bsd-3-clause`, `mpl-2.0`, `unlicense`, `none` | `license:KEY` |
+| `archived` | `0` to hide archived | `archived:false` |
+| `gfi` | `1` for open good first issues | `good-first-issues:>0` |
+| `forked` | `1` to include forks | `fork:true` |
+
+`license=none` has no GitHub qualifier — the API cannot search for the absence of a license — so it is applied locally only. Parsing and serialization live in `src/lib/search-params.ts`; unknown values fall back to the default rather than reaching GitHub.
 
 The local index contains realistic public repository metadata and clearly identifies itself in the interface as a curated index.

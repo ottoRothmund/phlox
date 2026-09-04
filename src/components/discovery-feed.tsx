@@ -410,9 +410,9 @@ function FeedCard({
             className="h-full w-full object-contain p-4 sm:p-8"
           />
         ) : (
-          <div className="flex h-full flex-col justify-end p-6 sm:p-10">
+          <div className="flex h-full flex-col justify-center p-6 sm:p-10">
             <p className="font-mono text-xs text-faint">{repository.owner}</p>
-            <p className="mt-2 break-words text-[clamp(2.5rem,9vw,7.5rem)] font-semibold leading-[0.92] tracking-[-0.05em]">
+            <p className="mt-2 break-words text-[clamp(2rem,7vw,5.5rem)] font-semibold leading-[0.95] tracking-[-0.05em]">
               {repository.name}
             </p>
             <p className="mt-6 max-w-2xl text-base leading-6 text-muted sm:text-lg sm:leading-7">

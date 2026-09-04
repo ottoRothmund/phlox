@@ -1,5 +1,6 @@
 import {
   getGitHubRepository,
+  repositoryFilterQualifiers,
   searchGitHubRepositories,
 } from "@/lib/github";
 import {
@@ -160,10 +161,7 @@ export async function searchRepositories({
     normalizedQuery,
     normalizedTopic ? `topic:${normalizedTopic}` : "",
     normalizedLanguage ? `language:${normalizedLanguage}` : "",
-    filters.minStars ? `stars:>=${filters.minStars}` : "",
-    filters.maxAgeDays
-      ? `created:>=${new Date(Date.now() - filters.maxAgeDays * 86_400_000).toISOString().slice(0, 10)}`
-      : "",
+    ...repositoryFilterQualifiers(filters),
   ]
     .filter(Boolean)
     .join(" ");

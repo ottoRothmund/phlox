@@ -2,12 +2,8 @@ import type { NextRequest } from "next/server";
 
 import { createFixedWindowRateLimiter } from "@/lib/rate-limit";
 import { searchRepositories } from "@/lib/repository-service";
-import {
-  MAX_SEARCH_QUERY_LENGTH,
-  isRepositorySort,
-  parseAgeWindow,
-  parseStarFloor,
-} from "@/lib/repositories";
+import { parseRepositoryFilters } from "@/lib/search-params";
+import { MAX_SEARCH_QUERY_LENGTH, isRepositorySort } from "@/lib/repositories";
 
 const windowMs = 60_000;
 const globalLimit = createFixedWindowRateLimiter({
@@ -45,10 +41,9 @@ export async function GET(request: NextRequest) {
   const query = request.nextUrl.searchParams.get("q")?.trim() || "";
   const requestedSort = request.nextUrl.searchParams.get("sort");
   const sort = isRepositorySort(requestedSort) ? requestedSort : "relevance";
-  const filters = {
-    minStars: parseStarFloor(request.nextUrl.searchParams.get("stars") ?? undefined),
-    maxAgeDays: parseAgeWindow(request.nextUrl.searchParams.get("age") ?? undefined),
-  };
+  const filters = parseRepositoryFilters(
+    Object.fromEntries(request.nextUrl.searchParams),
+  );
 
   if (!query) {
     return Response.json(

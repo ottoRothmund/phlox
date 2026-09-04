@@ -44,7 +44,7 @@ export function RepositoryRow({
   return (
     <article className="group grid grid-cols-[auto_minmax(0,1fr)] gap-x-3 gap-y-3 border-b border-border py-4 first:border-t sm:py-5 lg:grid-cols-[36px_auto_minmax(0,1fr)_300px] lg:gap-x-4">
       <div className="hidden pt-1 font-mono text-xs tabular-nums text-faint lg:block">
-        {rank ? String(rank).padStart(2, "0") : ""}
+        {rank ? `#${rank}` : ""}
       </div>
       {/* eslint-disable-next-line @next/next/no-img-element -- remote GitHub avatars, sized by the CDN */}
       <img
@@ -89,14 +89,6 @@ export function RepositoryRow({
           {repository.description}
         </p>
         <div className="mt-2.5 flex flex-wrap items-center gap-x-3 gap-y-1.5 text-xs text-muted">
-          <span className="inline-flex items-center gap-1 font-mono tabular-nums text-foreground lg:hidden">
-            <Star size={12} weight="fill" />
-            {compactNumber(repository.stars)}
-          </span>
-          <span className="inline-flex items-center gap-1 font-mono tabular-nums lg:hidden">
-            <GitFork size={12} />
-            {compactNumber(repository.forks)}
-          </span>
           <span
             className="font-medium"
             style={{ color: languageColor(repository.language) }}
@@ -114,30 +106,33 @@ export function RepositoryRow({
           ))}
         </div>
       </div>
-      <div className="col-span-2 flex items-center gap-2 lg:col-span-1 lg:grid lg:grid-cols-[1fr_auto_auto] lg:items-center lg:justify-end">
-        <div className="hidden lg:block">
-          <div className="flex items-center gap-3 font-mono text-xs tabular-nums">
-            <span className="inline-flex items-center gap-1">
-              <Star size={13} weight="fill" />
-              {compactNumber(repository.stars)}
+      <div className="col-span-2 flex items-center gap-3 lg:col-span-1 lg:justify-end">
+        <div className="flex items-center gap-3 font-mono text-xs tabular-nums lg:flex-col lg:items-end lg:gap-1">
+          <span className="inline-flex items-center gap-1" title={`${repository.stars.toLocaleString("en-US")} stars`}>
+            <Star size={13} weight="fill" />
+            {compactNumber(repository.stars)}
+          </span>
+          <span
+            className="inline-flex items-center gap-1 text-muted"
+            title={`${repository.forks.toLocaleString("en-US")} forks`}
+          >
+            <GitFork size={13} />
+            {compactNumber(repository.forks)}
+          </span>
+          {!repository.growthEstimated && repository.starDelta7d > 0 ? (
+            <span className="text-[11px] text-positive" title="Stars gained in the last week">
+              +{compactNumber(repository.starDelta7d)}
             </span>
-            <span className="inline-flex items-center gap-1 text-muted">
-              <GitFork size={13} />
-              {compactNumber(repository.forks)}
-            </span>
-          </div>
-          {!repository.growthEstimated ? (
-            <p className="mt-1.5 font-mono text-[11px] tabular-nums text-positive">
-              +{repository.starDelta7d.toLocaleString("en-US")} this week
-            </p>
           ) : null}
         </div>
-        <RepositoryReaction
-          fullName={repository.fullName}
-          initialCounts={reactionCounts}
-          compact
-        />
-        <SaveRepositoryButton repository={repository} />
+        <div className="ml-auto flex items-center gap-2 lg:ml-0">
+          <RepositoryReaction
+            fullName={repository.fullName}
+            initialCounts={reactionCounts}
+            compact
+          />
+          <SaveRepositoryButton repository={repository} />
+        </div>
       </div>
     </article>
   );

@@ -61,11 +61,13 @@ export default async function Home() {
                 Repository discovery
               </p>
               <h1 className="mt-5 max-w-3xl text-4xl font-semibold leading-[1.02] tracking-[-0.055em] sm:text-5xl lg:text-[58px]">
-                <span className="block">Find the repositories</span>
-                <span className="block text-muted">GitHub Explore misses.</span>
+                <span className="block">Good repos, before</span>
+                <span className="block text-muted">everyone else finds them.</span>
               </h1>
               <p className="mt-5 max-w-xl text-base leading-7 text-muted">
-                Search by momentum, topic, stack, and similarity. Follow the useful edges of open source.
+                GitHub&rsquo;s star count tells you what was popular two years ago. Phlox sorts by
+                what is growing now, and lets you filter it down to the size, age, license, and
+                language you actually want.
               </p>
               <form action="/search" className="mt-8 max-w-2xl">
                 <label className="relative block">

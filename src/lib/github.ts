@@ -1,6 +1,8 @@
 import {
   MAX_SEARCH_QUERY_LENGTH,
+  licenseFilters,
   type Repository,
+  type RepositoryFilters,
   type RepositorySort,
 } from "@/lib/repositories";
 import { registerRepositoryTopics } from "@/lib/phlox-data";
@@ -183,6 +185,34 @@ export function githubSortParameter(sort: RepositorySort): string {
     default:
       return "&sort=stars&order=desc";
   }
+}
+
+/**
+ * Translate Phlox filters into GitHub search qualifiers. Everything here has a
+ * real upstream qualifier, so the pool GitHub returns already respects the
+ * filter and the local pass in applyRepositoryFilters only has to agree.
+ *
+ * `license:none` has no qualifier — GitHub cannot search for the absence of a
+ * license — so that case is filtered locally only.
+ */
+export function repositoryFilterQualifiers(
+  filters: RepositoryFilters,
+  now = Date.now(),
+): string[] {
+  const isoDaysAgo = (days: number) =>
+    new Date(now - days * 86_400_000).toISOString().slice(0, 10);
+  const license = licenseFilters.find((option) => option.key === filters.license);
+
+  return [
+    filters.minStars ? `stars:>=${filters.minStars}` : "",
+    filters.minForks ? `forks:>=${filters.minForks}` : "",
+    filters.maxAgeDays ? `created:>=${isoDaysAgo(filters.maxAgeDays)}` : "",
+    filters.activeWithinDays ? `pushed:>=${isoDaysAgo(filters.activeWithinDays)}` : "",
+    license?.qualifier ? `license:${license.qualifier}` : "",
+    filters.hideArchived ? "archived:false" : "",
+    filters.goodFirstIssues ? "good-first-issues:>0" : "",
+    filters.includeForks ? "fork:true" : "",
+  ].filter(Boolean);
 }
 
 export function isPublicGitHubRepository(

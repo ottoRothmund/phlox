@@ -23,7 +23,8 @@ import {
   topicGroups,
   type TopicGroupChild,
 } from "@/lib/repository-taxonomy";
-import type { RepositorySort } from "@/lib/repositories";
+import type { RepositoryFilters, RepositorySort } from "@/lib/repositories";
+import { buildFilterHref } from "@/lib/search-params";
 
 function TopicIcon({ slug, size = 15 }: { slug: string; size?: number }) {
   const normalized = slug.toLocaleLowerCase();
@@ -162,8 +163,7 @@ export function RepositoryFilterRail({
   language,
   sort,
   query,
-  minStars = 0,
-  maxAgeDays = 0,
+  filters = {},
 }: {
   topics: TopicCatalogItem[];
   languages: string[];
@@ -171,19 +171,20 @@ export function RepositoryFilterRail({
   language: string;
   sort: RepositorySort;
   query: string;
-  minStars?: number;
-  maxAgeDays?: number;
+  filters?: RepositoryFilters;
 }) {
   function filterHref(key: "topic" | "language", value: string): string {
-    const next = new URLSearchParams();
-    if (sort !== "rising") next.set("sort", sort);
-    if (topic && key !== "topic") next.set("topic", topic);
-    if (language && key !== "language") next.set("language", language);
-    if (query) next.set("q", query);
-    if (minStars > 0) next.set("stars", String(minStars));
-    if (maxAgeDays > 0) next.set("age", String(maxAgeDays));
-    if (value) next.set(key, value);
-    return `/explore?${next.toString()}`;
+    return buildFilterHref({
+      pathname: "/explore",
+      sort,
+      defaultSort: "rising",
+      filters,
+      base: {
+        topic: key === "topic" ? value : topic,
+        language: key === "language" ? value : language,
+        q: query,
+      },
+    });
   }
 
   const rowClass =

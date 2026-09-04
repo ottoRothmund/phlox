@@ -6,10 +6,14 @@ import { RepositoryList } from "@/components/repository-list";
 import { SortControls } from "@/components/sort-controls";
 import { searchRepositories } from "@/lib/repository-service";
 import {
+  buildFilterHref,
+  firstParam,
+  parseRepositoryFilters,
+  writeRepositoryFilters,
+} from "@/lib/search-params";
+import {
   MAX_SEARCH_QUERY_LENGTH,
   isRepositorySort,
-  parseAgeWindow,
-  parseStarFloor,
   type RepositorySort,
 } from "@/lib/repositories";
 
@@ -25,47 +29,35 @@ const searchSorts: RepositorySort[] = [
   "updated",
 ];
 
-function first(value: string | string[] | undefined): string {
-  return Array.isArray(value) ? value[0] || "" : value || "";
-}
-
 export default async function SearchPage({
   searchParams,
 }: {
   searchParams: Promise<Record<string, string | string[] | undefined>>;
 }) {
   const params = await searchParams;
-  const query = first(params.q).trim().slice(0, MAX_SEARCH_QUERY_LENGTH);
-  const requestedSort = first(params.sort);
+  const query = firstParam(params.q).trim().slice(0, MAX_SEARCH_QUERY_LENGTH);
+  const requestedSort = firstParam(params.sort);
   const sort: RepositorySort =
     isRepositorySort(requestedSort) && searchSorts.includes(requestedSort)
       ? requestedSort
       : "relevance";
-  const minStars = parseStarFloor(first(params.stars));
-  const maxAgeDays = parseAgeWindow(first(params.age));
+  const filters = parseRepositoryFilters(params);
   const result = await searchRepositories({
     query,
     sort,
-    filters: { minStars, maxAgeDays },
+    filters,
     preferLive: Boolean(query) || sort === "likes",
   });
 
-  const hrefFor = (changes: {
-    sort?: RepositorySort;
-    minStars?: number;
-    maxAgeDays?: number;
-  }) => {
-    const nextSort = changes.sort ?? sort;
-    const nextStars = changes.minStars ?? minStars;
-    const nextAge = changes.maxAgeDays ?? maxAgeDays;
-    const next = new URLSearchParams();
-    if (query) next.set("q", query);
-    if (nextSort !== "relevance") next.set("sort", nextSort);
-    if (nextStars > 0) next.set("stars", String(nextStars));
-    if (nextAge > 0) next.set("age", String(nextAge));
-    const serialized = next.toString();
-    return serialized ? `/search?${serialized}` : "/search";
-  };
+  const hrefFor: Parameters<typeof SortControls>[0]["hrefFor"] = (changes) =>
+    buildFilterHref({
+      pathname: "/search",
+      sort,
+      defaultSort: "relevance",
+      filters,
+      base: { q: query },
+      changes,
+    });
 
   const heading = query
     ? `Results for “${query}”`
@@ -96,8 +88,11 @@ export default async function SearchPage({
             className="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 text-muted"
           />
           {sort !== "relevance" ? <input type="hidden" name="sort" value={sort} /> : null}
-          {minStars > 0 ? <input type="hidden" name="stars" value={minStars} /> : null}
-          {maxAgeDays > 0 ? <input type="hidden" name="age" value={maxAgeDays} /> : null}
+          {[...writeRepositoryFilters(new URLSearchParams(), filters)].map(
+            ([name, value]) => (
+              <input key={name} type="hidden" name={name} value={value} />
+            ),
+          )}
           <input
             type="search"
             name="q"
@@ -145,8 +140,7 @@ export default async function SearchPage({
         </div>
         <SortControls
           sort={sort}
-          minStars={minStars}
-          maxAgeDays={maxAgeDays}
+          filters={filters}
           hrefFor={hrefFor}
           sorts={searchSorts}
         />

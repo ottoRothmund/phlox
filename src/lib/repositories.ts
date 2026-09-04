@@ -36,7 +36,10 @@ export function isRepositorySort(value: unknown): value is RepositorySort {
 }
 
 /** Star floors offered as a filter. 0 means no floor. */
-export const starFloors = [0, 100, 1_000, 10_000] as const;
+export const starFloors = [0, 100, 1_000, 10_000, 50_000] as const;
+
+/** Fork floors offered as a filter. 0 means no floor. */
+export const forkFloors = [0, 10, 100, 1_000] as const;
 
 /** Creation-age windows offered as a filter, in days. 0 means any age. */
 export const ageWindows = [
@@ -44,13 +47,53 @@ export const ageWindows = [
   { days: 7, label: "This week" },
   { days: 30, label: "This month" },
   { days: 365, label: "This year" },
+  { days: 1_095, label: "3 years" },
 ] as const;
+
+/** Last-push windows offered as a filter, in days. 0 means any. */
+export const activityWindows = [
+  { days: 0, label: "Any time" },
+  { days: 7, label: "This week" },
+  { days: 30, label: "This month" },
+  { days: 365, label: "This year" },
+] as const;
+
+/**
+ * Licenses offered as a filter. `key` is what appears in the URL, `qualifier`
+ * is GitHub's SPDX-ish key for the `license:` search qualifier, and `match`
+ * decides the local check so a filtered pool stays consistent with the query.
+ */
+export const licenseFilters = [
+  { key: "", label: "Any license", qualifier: "" },
+  { key: "mit", label: "MIT", qualifier: "mit" },
+  { key: "apache-2.0", label: "Apache 2.0", qualifier: "apache-2.0" },
+  { key: "gpl-3.0", label: "GPL 3.0", qualifier: "gpl-3.0" },
+  { key: "agpl-3.0", label: "AGPL 3.0", qualifier: "agpl-3.0" },
+  { key: "bsd-3-clause", label: "BSD 3-clause", qualifier: "bsd-3-clause" },
+  { key: "mpl-2.0", label: "MPL 2.0", qualifier: "mpl-2.0" },
+  { key: "unlicense", label: "Unlicense", qualifier: "unlicense" },
+  { key: "none", label: "No license", qualifier: "" },
+] as const;
+
+export type LicenseFilter = (typeof licenseFilters)[number]["key"];
 
 export interface RepositoryFilters {
   /** Keep repositories with at least this many stars. */
   minStars?: number;
+  /** Keep repositories with at least this many forks. */
+  minForks?: number;
   /** Keep repositories created within the last N days. */
   maxAgeDays?: number;
+  /** Keep repositories pushed to within the last N days. */
+  activeWithinDays?: number;
+  /** Keep repositories under this license key, or unlicensed for "none". */
+  license?: LicenseFilter;
+  /** Drop archived repositories. */
+  hideArchived?: boolean;
+  /** Keep only repositories with open "good first issue" labels. */
+  goodFirstIssues?: boolean;
+  /** Include forks. GitHub search excludes them by default. */
+  includeForks?: boolean;
 }
 
 export function parseStarFloor(value: string | undefined): number {
@@ -58,25 +101,92 @@ export function parseStarFloor(value: string | undefined): number {
   return starFloors.includes(parsed as (typeof starFloors)[number]) ? parsed : 0;
 }
 
+export function parseForkFloor(value: string | undefined): number {
+  const parsed = Number.parseInt(value ?? "", 10);
+  return forkFloors.includes(parsed as (typeof forkFloors)[number]) ? parsed : 0;
+}
+
 export function parseAgeWindow(value: string | undefined): number {
   const parsed = Number.parseInt(value ?? "", 10);
   return ageWindows.some((window) => window.days === parsed) ? parsed : 0;
 }
 
+export function parseActivityWindow(value: string | undefined): number {
+  const parsed = Number.parseInt(value ?? "", 10);
+  return activityWindows.some((window) => window.days === parsed) ? parsed : 0;
+}
+
+export function parseLicenseFilter(value: string | undefined): LicenseFilter {
+  const normalized = (value ?? "").trim().toLocaleLowerCase();
+  const match = licenseFilters.find((option) => option.key === normalized);
+  return match ? match.key : "";
+}
+
+export function parseFlag(value: string | undefined): boolean {
+  return value === "1" || value === "true";
+}
+
+/** True when the repository carries no usable license metadata. */
+function unlicensed(repository: Repository): boolean {
+  const license = repository.license.trim();
+  return !license || /^(not specified|noassertion)$/i.test(license);
+}
+
+function licenseMatches(repository: Repository, license: LicenseFilter): boolean {
+  if (!license) return true;
+  if (license === "none") return unlicensed(repository);
+  if (unlicensed(repository)) return false;
+  return repository.license.trim().toLocaleLowerCase() === license;
+}
+
+/** Count of filters the visitor has actually set, for the "More filters" badge. */
+export function countActiveFilters(filters: RepositoryFilters): number {
+  return [
+    (filters.minStars ?? 0) > 0,
+    (filters.minForks ?? 0) > 0,
+    (filters.maxAgeDays ?? 0) > 0,
+    (filters.activeWithinDays ?? 0) > 0,
+    Boolean(filters.license),
+    Boolean(filters.hideArchived),
+    Boolean(filters.goodFirstIssues),
+    Boolean(filters.includeForks),
+  ].filter(Boolean).length;
+}
+
+/**
+ * Local pass over a result pool. Every filter here is also pushed to GitHub as
+ * a search qualifier where one exists; this pass keeps the indexed fallback and
+ * any locally reranked pool honest.
+ */
 export function applyRepositoryFilters(
   repositories: Repository[],
   filters: RepositoryFilters,
   now = Date.now(),
 ): Repository[] {
   const minStars = filters.minStars ?? 0;
+  const minForks = filters.minForks ?? 0;
   const maxAgeDays = filters.maxAgeDays ?? 0;
-  if (minStars <= 0 && maxAgeDays <= 0) return repositories;
+  const activeWithinDays = filters.activeWithinDays ?? 0;
+  const license = filters.license ?? "";
+  if (
+    minStars <= 0 &&
+    minForks <= 0 &&
+    maxAgeDays <= 0 &&
+    activeWithinDays <= 0 &&
+    !license
+  ) {
+    return repositories;
+  }
 
-  const oldestAllowed = now - maxAgeDays * 86_400_000;
+  const createdAfter = now - maxAgeDays * 86_400_000;
+  const pushedAfter = now - activeWithinDays * 86_400_000;
   return repositories.filter(
     (repository) =>
       repository.stars >= minStars &&
-      (maxAgeDays <= 0 || Date.parse(repository.createdAt) >= oldestAllowed),
+      repository.forks >= minForks &&
+      (maxAgeDays <= 0 || Date.parse(repository.createdAt) >= createdAfter) &&
+      (activeWithinDays <= 0 || Date.parse(repository.pushedAt) >= pushedAfter) &&
+      licenseMatches(repository, license),
   );
 }
 

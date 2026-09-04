@@ -20,12 +20,12 @@ const geistMono = Geist_Mono({
 });
 
 const description =
-  "Find the GitHub repositories GitHub Explore misses: rising projects, deep cuts, and new releases, ranked by real growth.";
+  "Find good GitHub repositories before everyone else. Sort by real growth, not lifetime stars, and filter by size, age, license, and language.";
 
 export const metadata: Metadata = {
   metadataBase: siteUrl(),
   title: {
-    default: "Phlox - Discover remarkable repositories",
+    default: "Phlox - Find good repositories early",
     template: "%s | Phlox",
   },
   description,
@@ -33,13 +33,13 @@ export const metadata: Metadata = {
   openGraph: {
     type: "website",
     siteName: "Phlox",
-    title: "Phlox - Discover remarkable repositories",
+    title: "Phlox - Find good repositories early",
     description,
     images: [{ url: "/phlox-logo.png", width: 512, height: 505, alt: "Phlox" }],
   },
   twitter: {
     card: "summary",
-    title: "Phlox - Discover remarkable repositories",
+    title: "Phlox - Find good repositories early",
     description,
     images: ["/phlox-logo.png"],
   },

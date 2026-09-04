@@ -73,7 +73,15 @@ describe("repository row", () => {
     expect(screen.getByText("Rust")).toHaveStyle({
       color: "var(--language-rust)",
     });
-    expect(screen.getByText("+1,240 this week")).toBeInTheDocument();
+    expect(screen.getByText("#1")).toBeInTheDocument();
+    expect(screen.getByTitle("Stars gained in the last week")).toHaveTextContent(
+      "+1,240",
+    );
+    expect(
+      screen.getByTitle(`${repository.stars.toLocaleString("en-US")} stars`),
+    ).toBeInTheDocument();
+    // Stars must appear exactly once per row.
+    expect(screen.getAllByTitle(/stars$/)).toHaveLength(1);
     expect(
       screen.getByRole("button", { name: "Like astral-sh/uv" }),
     ).toBeInTheDocument();

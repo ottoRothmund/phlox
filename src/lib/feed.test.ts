@@ -3,6 +3,7 @@ import { describe, expect, it } from "vitest";
 import {
   assembleFeedBatch,
   emptyTaste,
+  isFeedWorthy,
   parseTaste,
   planFeedQueries,
   sanitizeWeights,
@@ -94,6 +95,51 @@ describe("feed batch assembly", () => {
     expect(new Set(names).size).toBe(names.length);
     expect(names).not.toContain(d.fullName);
     expect(names.sort()).toEqual([a.fullName, b.fullName, c.fullName].sort());
+  });
+
+  it("drops repositories that would render as an empty card", () => {
+    const base = mockRepositories[0];
+    const noDescription = {
+      ...base,
+      id: 9001,
+      fullName: "kelvinfkr/company_skill",
+      description: "No description provided.",
+      topics: [],
+      forks: 0,
+      watchers: 1,
+      homepage: undefined,
+    };
+    const bareShell = {
+      ...base,
+      id: 9002,
+      fullName: "someone/scratch",
+      description: "wip",
+      topics: [],
+      forks: 0,
+      watchers: 0,
+      homepage: undefined,
+    };
+    const noTopicsButUsed = {
+      ...base,
+      id: 9003,
+      fullName: "someone/useful",
+      description: "A small library for parsing feeds",
+      topics: [],
+      forks: 12,
+      watchers: 30,
+      homepage: undefined,
+    };
+
+    expect(isFeedWorthy(noDescription)).toBe(false);
+    expect(isFeedWorthy(bareShell)).toBe(false);
+    expect(isFeedWorthy(noTopicsButUsed)).toBe(true);
+
+    const items = assembleFeedBatch(
+      [{ plan: plans[0], repositories: [noDescription, bareShell, base] }],
+      [],
+      1,
+    );
+    expect(items.map((item) => item.repository.fullName)).toEqual([base.fullName]);
   });
 
   it("tags each item with the lane that produced it", () => {
