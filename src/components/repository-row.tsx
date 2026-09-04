@@ -42,8 +42,8 @@ export function RepositoryRow({
   const avatar = repository.avatarUrl ?? `https://github.com/${repository.owner}.png?size=80`;
 
   return (
-    <article className="group grid grid-cols-[auto_minmax(0,1fr)] gap-x-3 gap-y-3 border-b border-border py-4 first:border-t sm:py-5 lg:grid-cols-[36px_auto_minmax(0,1fr)_300px] lg:gap-x-4">
-      <div className="hidden pt-1 font-mono text-xs tabular-nums text-faint lg:block">
+    <article className="group grid grid-cols-[auto_minmax(0,1fr)_auto] items-start gap-x-3 gap-y-3 border-b border-border py-4 first:border-t sm:py-5 lg:grid-cols-[36px_auto_minmax(0,1fr)_auto] lg:gap-x-4">
+      <div className="hidden pt-1 font-mono text-xs tabular-nums text-faint lg:col-start-1 lg:row-start-1 lg:block">
         {rank ? `#${rank}` : ""}
       </div>
       {/* eslint-disable-next-line @next/next/no-img-element -- remote GitHub avatars, sized by the CDN */}
@@ -54,9 +54,9 @@ export function RepositoryRow({
         height={40}
         loading="lazy"
         decoding="async"
-        className="mt-0.5 h-9 w-9 shrink-0 rounded-[6px] border border-border bg-subtle object-cover sm:h-10 sm:w-10"
+        className="col-start-1 row-start-1 mt-0.5 h-9 w-9 shrink-0 rounded-[6px] border border-border bg-subtle object-cover sm:h-10 sm:w-10 lg:col-start-2"
       />
-      <div className="min-w-0">
+      <div className="col-start-2 row-start-1 min-w-0 sm:row-span-2 lg:col-start-3">
         <div className="flex min-w-0 items-start gap-2">
           <Link
             href={`/repo/${repository.owner}/${repository.name}`}
@@ -106,33 +106,42 @@ export function RepositoryRow({
           ))}
         </div>
       </div>
-      <div className="col-span-2 flex items-center gap-3 lg:col-span-1 lg:justify-end">
-        <div className="flex items-center gap-3 font-mono text-xs tabular-nums lg:flex-col lg:items-end lg:gap-1">
-          <span className="inline-flex items-center gap-1" title={`${repository.stars.toLocaleString("en-US")} stars`}>
-            <Star size={13} weight="fill" />
-            {compactNumber(repository.stars)}
-          </span>
+
+      {/* Stars and forks sit top-right, level with the repository name. */}
+      <div className="col-start-3 row-start-1 flex items-center gap-3 pt-0.5 font-mono text-xs tabular-nums sm:gap-4 lg:col-start-4">
+        <span
+          className="inline-flex items-center gap-1"
+          title={`${repository.stars.toLocaleString("en-US")} stars`}
+        >
+          <Star size={13} weight="fill" />
+          {compactNumber(repository.stars)}
+        </span>
+        <span
+          className="inline-flex items-center gap-1 text-muted"
+          title={`${repository.forks.toLocaleString("en-US")} forks`}
+        >
+          <GitFork size={13} />
+          {compactNumber(repository.forks)}
+        </span>
+        {!repository.growthEstimated && repository.starDelta7d > 0 ? (
           <span
-            className="inline-flex items-center gap-1 text-muted"
-            title={`${repository.forks.toLocaleString("en-US")} forks`}
+            className="hidden text-positive sm:inline"
+            title="Stars gained in the last week"
           >
-            <GitFork size={13} />
-            {compactNumber(repository.forks)}
+            +{compactNumber(repository.starDelta7d)}
           </span>
-          {!repository.growthEstimated && repository.starDelta7d > 0 ? (
-            <span className="text-[11px] text-positive" title="Stars gained in the last week">
-              +{compactNumber(repository.starDelta7d)}
-            </span>
-          ) : null}
-        </div>
-        <div className="ml-auto flex items-center gap-2 lg:ml-0">
-          <RepositoryReaction
-            fullName={repository.fullName}
-            initialCounts={reactionCounts}
-            compact
-          />
-          <SaveRepositoryButton repository={repository} />
-        </div>
+        ) : null}
+      </div>
+
+      {/* Actions tuck under the counts on wide screens, and drop to their own
+          row on phones where there is no space beside the description. */}
+      <div className="col-span-3 row-start-2 flex items-center justify-end gap-2 sm:col-span-1 sm:col-start-3 sm:self-end sm:pb-0.5 lg:col-start-4">
+        <RepositoryReaction
+          fullName={repository.fullName}
+          initialCounts={reactionCounts}
+          compact
+        />
+        <SaveRepositoryButton repository={repository} />
       </div>
     </article>
   );
