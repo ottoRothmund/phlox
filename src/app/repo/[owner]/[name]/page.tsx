@@ -132,7 +132,7 @@ export default async function RepositoryPage({
         </div>
       </header>
 
-      <section className="grid border-b border-border sm:grid-cols-2 lg:grid-cols-4">
+      <section className="grid grid-cols-2 gap-px border-b border-border bg-border lg:grid-cols-4">
         {[
           { label: "Stars", value: repository.stars.toLocaleString("en-US"), icon: Star, positive: false },
           { label: "Forks", value: repository.forks.toLocaleString("en-US"), icon: GitFork, positive: false },
@@ -162,10 +162,10 @@ export default async function RepositoryPage({
                 icon: GitFork,
                 positive: false,
               }]),
-        ].map(({ label, value, icon: Icon, positive }, index) => (
-          <div key={label} className={`py-5 sm:px-5 ${index > 0 ? "sm:border-l sm:border-border" : ""}`}>
+        ].map(({ label, value, icon: Icon, positive }) => (
+          <div key={label} className="bg-background py-4 pr-3 sm:py-5 [&:nth-child(2n)]:pl-4 lg:[&:nth-child(n+2)]:pl-5 sm:[&:nth-child(2n)]:pl-5">
             <div className="flex items-center gap-2 text-xs text-muted"><Icon size={14} />{label}</div>
-            <p className={`mt-2 font-mono text-2xl font-medium tabular-nums ${positive ? "text-positive" : ""}`}>{value}</p>
+            <p className={`mt-1.5 font-mono text-xl font-medium tabular-nums sm:text-2xl ${positive ? "text-positive" : ""}`}>{value}</p>
           </div>
         ))}
       </section>

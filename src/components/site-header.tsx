@@ -67,10 +67,11 @@ export function SiteHeader({ user }: { user: SessionUser | null }) {
                 href={href}
                 aria-current={active ? "page" : undefined}
                 aria-label={label}
-                className="relative flex h-full items-center gap-1.5 px-3 text-sm text-muted transition-colors hover:text-foreground aria-[current=page]:text-foreground"
+                className="relative flex h-full items-center gap-1.5 px-2.5 text-sm text-muted transition-colors hover:text-foreground aria-[current=page]:text-foreground sm:px-3"
               >
                 <Icon size={15} />
                 <span className="hidden sm:inline">{label}</span>
+                <span className="sr-only sm:hidden">{label}</span>
                 {active ? (
                   <span className="absolute inset-x-3 bottom-0 h-px bg-foreground" />
                 ) : null}

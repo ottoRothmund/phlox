@@ -31,6 +31,18 @@ export function languageColor(language: string): string {
   return `var(--language-${token})`;
 }
 
+/**
+ * GitHub's SPDX ids include two placeholders that read as noise in a list:
+ * NOASSERTION (a custom license file) and our own "Not specified". Show
+ * "Custom license" for the first and nothing for the second.
+ */
+export function licenseLabel(license: string): string {
+  const normalized = license.trim();
+  if (!normalized || /^not specified$/i.test(normalized)) return "";
+  if (/^noassertion$/i.test(normalized)) return "Custom license";
+  return normalized;
+}
+
 export function mergeTopicCatalog(
   discovered: TopicCatalogItem[],
   fallback: TopicCatalogItem[],

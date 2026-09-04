@@ -490,28 +490,34 @@ function FeedCard({
           ) : null}
         </div>
 
-        <div className="flex flex-wrap items-center gap-2">
-          <RepositoryReaction
-            fullName={repository.fullName}
-            initialCounts={reactionCounts}
-            size="large"
-            onReact={(reaction) => onSignal(reaction ?? "skip")}
-          />
-          <SaveRepositoryButton
-            repository={repository}
-            menuSide="left"
-            className="button-secondary h-11 px-3 text-sm"
-            onToggle={(added) => onSignal(added ? "save" : "skip")}
-          />
-          <a
-            href={githubUrl}
-            target="_blank"
-            rel="noreferrer"
-            aria-label={`Open ${repository.fullName} on GitHub`}
-            className="button-ghost h-11 px-3 text-sm"
-          >
-            GitHub <ArrowSquareOut size={13} />
-          </a>
+        <div className="flex flex-col gap-3">
+          <div className="flex flex-wrap items-center gap-2">
+            <RepositoryReaction
+              fullName={repository.fullName}
+              initialCounts={reactionCounts}
+              size="large"
+              onReact={(reaction) => onSignal(reaction ?? "skip")}
+            />
+            <SaveRepositoryButton
+              repository={repository}
+              menuSide="left"
+              className="button-secondary h-11 px-3 text-sm"
+              onToggle={(added) => onSignal(added ? "save" : "skip")}
+            />
+            <a
+              href={githubUrl}
+              target="_blank"
+              rel="noreferrer"
+              aria-label={`Open ${repository.fullName} on GitHub`}
+              className="button-ghost h-11 px-3 text-sm"
+            >
+              GitHub <ArrowSquareOut size={13} />
+            </a>
+          </div>
+          <p className="hidden font-mono text-[11px] text-faint lg:block">
+            <kbd className="border border-border px-1">j</kbd> next ·{" "}
+            <kbd className="border border-border px-1">k</kbd> previous
+          </p>
         </div>
       </div>
     </article>

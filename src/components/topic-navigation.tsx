@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import {
   Brain,
   CaretRight,
@@ -190,26 +190,50 @@ export function RepositoryFilterRail({
     "flex min-h-9 w-full items-center gap-2 px-3 py-2 text-left text-xs text-muted hover:bg-subtle hover:text-foreground aria-[current=page]:bg-subtle aria-[current=page]:font-semibold aria-[current=page]:text-foreground";
 
   const counts = new Map(topics.map((item) => [item.slug, item.repositoryCount]));
+  const activeSummary = [topic ? topicLabel(topic) : "", language]
+    .filter(Boolean)
+    .join(" · ");
+
+  // On small screens the rail collapses to one line so results sit above
+  // the fold; it opens automatically when a filter is active so the reason
+  // for the narrowed list is visible. Desktop always shows it.
+  const [open, setOpen] = useState(Boolean(topic || language));
+  useEffect(() => {
+    const desktop = window.matchMedia("(min-width: 64rem)");
+    const sync = () => {
+      if (desktop.matches) setOpen(true);
+    };
+    sync();
+    desktop.addEventListener("change", sync);
+    return () => desktop.removeEventListener("change", sync);
+  }, []);
 
   return (
-    <nav
-      aria-label="Repository filters"
-      className="max-h-[50dvh] overflow-y-auto border border-border bg-surface p-2 lg:sticky lg:top-20 lg:max-h-[calc(100dvh-6rem)]"
+    <details
+      open={open}
+      onToggle={(event) => setOpen(event.currentTarget.open)}
+      className="filter-rail group border border-border bg-surface lg:sticky lg:top-20"
     >
-      <div className="sticky top-0 z-[1] flex items-center gap-2 bg-surface px-3 py-2 text-xs font-semibold">
+      <summary className="flex cursor-pointer list-none items-center gap-2 px-3 py-2.5 text-xs font-semibold [&::-webkit-details-marker]:hidden lg:cursor-default lg:py-2">
         <FunnelSimple size={14} aria-hidden="true" />
-        Filters
-      </div>
+        <span>Filters</span>
+        {activeSummary ? (
+          <span className="min-w-0 truncate font-normal text-muted" aria-live="polite">
+            · {activeSummary}
+          </span>
+        ) : null}
+        <CaretRight
+          size={12}
+          aria-hidden="true"
+          className="ml-auto transition-transform group-open:rotate-90 lg:hidden"
+        />
+      </summary>
+      <nav
+        aria-label="Repository filters"
+        className="max-h-[60dvh] overflow-y-auto border-t border-border p-2 lg:max-h-[calc(100dvh-8rem)]"
+      >
 
-      {(topic || language) && (
-        <div className="px-3 py-1 text-[10px] text-muted" aria-live="polite">
-          Active: {topic ? topicLabel(topic) : ""}
-          {topic && language ? " · " : ""}
-          {language || ""}
-        </div>
-      )}
-
-      <section className="mt-2" aria-labelledby="topic-filter-heading">
+      <section aria-labelledby="topic-filter-heading">
         <h2
           id="topic-filter-heading"
           className="px-3 py-2 text-[11px] font-semibold uppercase tracking-[0.08em] text-muted"
@@ -264,6 +288,7 @@ export function RepositoryFilterRail({
           ))}
         </div>
       </section>
-    </nav>
+      </nav>
+    </details>
   );
 }

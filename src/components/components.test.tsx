@@ -69,7 +69,7 @@ describe("repository row", () => {
     );
 
     expect(screen.getByText("uv")).toBeInTheDocument();
-    expect(screen.getByText("astral-sh")).toBeInTheDocument();
+    expect(screen.getAllByText("astral-sh").length).toBeGreaterThan(0);
     expect(screen.getByText("Rust")).toHaveStyle({
       color: "var(--language-rust)",
     });

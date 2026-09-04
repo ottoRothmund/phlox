@@ -136,7 +136,7 @@ export default async function SearchPage({
         </section>
       ) : null}
 
-      <div className="mt-9 flex flex-col gap-4 border-b border-border pb-4">
+      <div className="mt-9 flex flex-col gap-4">
         <div>
           <h2 className="text-lg font-semibold">{heading}</h2>
           <p className="mt-1 text-xs text-muted">
@@ -151,7 +151,7 @@ export default async function SearchPage({
           sorts={searchSorts}
         />
       </div>
-      <div className="mt-3">
+      <div className="mt-4">
         <RepositoryList
           repositories={result.repositories}
           reactionCounts={result.reactionCounts}
