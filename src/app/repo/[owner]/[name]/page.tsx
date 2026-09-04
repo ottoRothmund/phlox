@@ -24,8 +24,7 @@ import {
   type ReactionCounts,
 } from "@/lib/phlox-data";
 import { languageColor } from "@/lib/repository-taxonomy";
-import { getRepository } from "@/lib/repository-service";
-import { findRelatedRepositories } from "@/lib/repositories";
+import { getRelatedRepositories, getRepository } from "@/lib/repository-service";
 
 export async function generateMetadata({
   params,
@@ -34,9 +33,18 @@ export async function generateMetadata({
 }): Promise<Metadata> {
   const { owner, name } = await params;
   const fullName = `${owner}/${name}`;
+  const repository = await getRepository(owner, name).catch(() => null);
+  const description = repository
+    ? `${repository.description} · ${repository.stars.toLocaleString("en-US")} stars · ${repository.language}`
+    : `Repository details, README, screenshots, and community notes for ${fullName}.`;
   return {
     title: fullName,
-    description: `Repository details, README, screenshots, and community notes for ${fullName}.`,
+    description,
+    openGraph: {
+      title: fullName,
+      description,
+      ...(repository?.avatarUrl ? { images: [repository.avatarUrl] } : {}),
+    },
   };
 }
 
@@ -64,16 +72,16 @@ export default async function RepositoryPage({
   const repository = await getRepository(owner, name);
   if (!repository) notFound();
 
-  const related = findRelatedRepositories(repository, mockRepositories, 5);
   const githubUrl = repository.htmlUrl || `https://github.com/${repository.fullName}`;
-  const [readme, reactionCounts, reviews] = await Promise.all([
+  const [readme, related, reviews] = await Promise.all([
     getGitHubRepositoryReadme(repository.owner, repository.name).catch(() => null),
-    getRepositoryReactionCounts([
-      repository.fullName,
-      ...related.map((item) => item.fullName),
-    ]).catch((): Record<string, ReactionCounts> => ({})),
+    getRelatedRepositories(repository, 5).catch(() => []),
     getRepositoryReviews(repository.fullName).catch(() => []),
   ]);
+  const reactionCounts = await getRepositoryReactionCounts([
+    repository.fullName,
+    ...related.map((item) => item.fullName),
+  ]).catch((): Record<string, ReactionCounts> => ({}));
   const repositoryCounts =
     reactionCounts[repository.fullName.toLocaleLowerCase()];
 

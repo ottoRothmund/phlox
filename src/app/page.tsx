@@ -8,7 +8,7 @@ import Link from "next/link";
 
 import { RepositoryList } from "@/components/repository-list";
 import { TopicBrowse } from "@/components/topic-navigation";
-import { discoveryTopics, queryMockRepositories } from "@/lib/mock-data";
+import { discoveryTopics } from "@/lib/mock-data";
 import { getTopicCatalog } from "@/lib/phlox-data";
 import { languageColor, mergeTopicCatalog } from "@/lib/repository-taxonomy";
 import { searchRepositories } from "@/lib/repository-service";
@@ -18,9 +18,15 @@ export const metadata: Metadata = {
 };
 
 export default async function Home() {
-  const [result, discoveredTopics] = await Promise.all([
+  const [result, smallResult, discoveredTopics] = await Promise.all([
     searchRepositories({
       query: "stars:>100",
+      sort: "rising",
+      limit: 12,
+      preferLive: true,
+    }),
+    searchRepositories({
+      query: "stars:100..10000",
       sort: "rising",
       limit: 12,
       preferLive: true,
@@ -28,6 +34,7 @@ export default async function Home() {
     getTopicCatalog(18).catch(() => []),
   ]);
   const rising = result.repositories;
+  const shown = new Set(rising.slice(0, 8).map((repository) => repository.fullName));
   const fallbackTopics = discoveryTopics.map((topic) => ({
     slug: topic.slug,
     label: topic.label,
@@ -39,8 +46,8 @@ export default async function Home() {
     18,
   );
   const reactionCounts = result.reactionCounts;
-  const underTheRadar = queryMockRepositories({ sort: "rising" })
-    .filter((repository) => repository.stars < 10_000)
+  const underTheRadar = smallResult.repositories
+    .filter((repository) => repository.stars < 10_000 && !shown.has(repository.fullName))
     .slice(0, 4);
   const topLanguage = rising[0]?.language ?? "";
 
@@ -114,8 +121,11 @@ export default async function Home() {
       <section className="border-b border-border bg-background">
         <div className="mx-auto flex max-w-[1440px] flex-wrap items-center gap-x-6 gap-y-2 px-4 py-3 text-xs text-muted sm:px-6">
           <span className="font-mono">
-            <span aria-hidden="true" className="mr-1.5 inline-block h-1.5 w-1.5 rounded-full bg-positive" />
-            live from GitHub
+            <span
+              aria-hidden="true"
+              className={`mr-1.5 inline-block h-1.5 w-1.5 rounded-full ${result.source === "github" ? "bg-positive" : "bg-faint"}`}
+            />
+            {result.source === "github" ? "live from GitHub" : "indexed fallback · GitHub unavailable"}
           </span>
           {topLanguage ? (
             <span>
@@ -123,7 +133,7 @@ export default async function Home() {
             </span>
           ) : null}
           <span>{browseTopics.length} topics indexed</span>
-          <span className="ml-auto hidden sm:block">updated continuously · public repositories only</span>
+          <span className="ml-auto hidden sm:block">refreshed every 5 minutes · public repositories only</span>
         </div>
       </section>
 
@@ -154,7 +164,7 @@ export default async function Home() {
           <aside className="space-y-8">
             <section>
               <h2 className="text-sm font-semibold">Under 10k stars</h2>
-              <p className="mt-1 text-xs leading-5 text-muted">Smaller projects with disproportionate weekly growth.</p>
+              <p className="mt-1 text-xs leading-5 text-muted">Smaller projects growing fast relative to their size.</p>
               <div className="mt-4 border-t border-border">
                 {underTheRadar.map((repository) => (
                   <Link
@@ -171,7 +181,9 @@ export default async function Home() {
                           {repository.owner}
                         </span>
                       </span>
-                      <span className="font-mono text-[11px] text-positive">+{repository.starDelta7d}</span>
+                      <span className="font-mono text-[11px] tabular-nums text-muted">
+                        {repository.stars.toLocaleString("en-US")} ★
+                      </span>
                     </div>
                     <p className="mt-1.5 line-clamp-2 text-xs leading-5 text-muted">{repository.description}</p>
                   </Link>

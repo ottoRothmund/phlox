@@ -1,7 +1,9 @@
 import { describe, expect, it, vi } from "vitest";
 
 import {
+  getRelatedRepositories,
   getRepository,
+  pickDescriptiveTopics,
   searchRepositories,
 } from "@/lib/repository-service";
 import { mockRepositories } from "@/lib/mock-data";
@@ -238,6 +240,39 @@ describe("repository service", () => {
       result?.fullName,
       result?.topics,
     );
+  });
+
+  it("finds related repositories on GitHub by a descriptive topic and language", async () => {
+    const source = mockRepositories[1]; // sxyazi/yazi: terminal, file-manager, ...
+    const liveSearch = vi.fn().mockResolvedValue([
+      source,
+      mockRepositories[2], // atuin: shell, terminal
+      { ...mockRepositories[5], topics: ["unrelated"], language: "Haskell", license: "X" },
+    ]);
+
+    const related = await getRelatedRepositories(source, 5, liveSearch);
+
+    const [query, sort, limit] = liveSearch.mock.calls[0];
+    expect(query).toBe("topic:file-manager language:Rust stars:>=50");
+    expect(sort).toBe("stars");
+    expect(limit).toBe(30);
+    expect(related.map((repository) => repository.fullName)).toContain("atuinsh/atuin");
+    expect(related.map((repository) => repository.fullName)).not.toContain(source.fullName);
+  });
+
+  it("skips platform and language topics when choosing a representative topic", () => {
+    expect(
+      pickDescriptiveTopics(["android", "asyncio", "cli", "file-manager", "linux", "rust", "terminal"]),
+    ).toEqual(["file-manager", "terminal"]);
+    expect(pickDescriptiveTopics(["rust", "linux"])).toEqual(["rust", "linux"]);
+    expect(pickDescriptiveTopics([])).toEqual([]);
+  });
+
+  it("falls back to the index for related repositories when GitHub fails", async () => {
+    const liveSearch = vi.fn().mockRejectedValue(new Error("rate limited"));
+    const related = await getRelatedRepositories(mockRepositories[1], 3, liveSearch);
+    expect(related.length).toBeGreaterThan(0);
+    expect(related.every((repository) => repository.id !== mockRepositories[1].id)).toBe(true);
   });
 
   it("propagates transient repository detail failures", async () => {

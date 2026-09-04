@@ -1,4 +1,4 @@
-import { render, screen, within } from "@testing-library/react";
+import { fireEvent, render, screen, within } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 
 import { AppShell } from "@/components/app-shell";
@@ -34,6 +34,28 @@ describe("application shell", () => {
       within(primaryNavigation).getByRole("link", { name: "Collections" }),
     ).toBeInTheDocument();
     expect(screen.getByRole("heading", { name: "Discovery" })).toBeInTheDocument();
+  });
+
+  it("focuses header search on '/' unless the visitor is already typing", () => {
+    render(
+      <CollectionsProvider>
+        <AppShell>
+          <textarea aria-label="Note" />
+        </AppShell>
+      </CollectionsProvider>,
+    );
+    const search = screen.getByRole("searchbox", { name: "Search repositories" });
+    // jsdom has no layout, so offsetParent is null; the shortcut checks it to
+    // skip the hidden mobile state. Pretend the input is laid out.
+    Object.defineProperty(search, "offsetParent", { get: () => document.body });
+
+    fireEvent.keyDown(window, { key: "/" });
+    expect(search).toHaveFocus();
+
+    const note = screen.getByLabelText("Note");
+    note.focus();
+    fireEvent.keyDown(note, { key: "/" });
+    expect(note).toHaveFocus();
   });
 });
 

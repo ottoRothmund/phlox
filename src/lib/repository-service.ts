@@ -15,6 +15,7 @@ import {
 import {
   MAX_SEARCH_QUERY_LENGTH,
   applyRepositoryFilters,
+  findRelatedRepositories,
   sortRepositories,
   type Repository,
   type RepositoryFilters,
@@ -211,6 +212,67 @@ export async function searchRepositories({
       .map((repository) => registerTopics(repository.fullName, repository.topics)),
   );
   return finish(repositories, "index");
+}
+
+/**
+ * Related repositories from GitHub: same primary topics or language, scored
+ * by findRelatedRepositories. The local index is only a fallback so the
+ * section is never empty when GitHub is rate-limited.
+ */
+/**
+ * Topics that describe where a project runs or what it is written in, not
+ * what it does. GitHub lists topics alphabetically, so without this
+ * "android, asyncio" would represent a terminal file manager.
+ */
+const genericTopics = new Set([
+  "android", "ios", "linux", "macos", "windows", "web", "mobile", "desktop",
+  "cross-platform", "open-source", "opensource", "hacktoberfest", "awesome",
+  "awesome-list", "library", "framework", "tool", "tools", "app", "application",
+  "developer-tools", "devtools", "productivity", "utility", "utilities",
+  "c", "cpp", "csharp", "go", "golang", "java", "javascript", "typescript",
+  "python", "python3", "rust", "rust-lang", "ruby", "php", "swift", "kotlin",
+  "zig", "nix", "lua", "shell", "bash", "html", "css", "nodejs", "node",
+  "react", "asyncio", "async", "concurrency", "performance", "fast",
+]);
+
+export function pickDescriptiveTopics(topics: string[], count = 2): string[] {
+  const valid = topics.filter((topic) => /^[a-z0-9._+-]+$/i.test(topic));
+  const specific = valid.filter((topic) => !genericTopics.has(topic.toLocaleLowerCase()));
+  // Longer, hyphenated topics ("file-manager") say more than short ones ("cli").
+  const ranked = [...specific].sort((a, b) => b.length - a.length);
+  return (ranked.length > 0 ? ranked : valid).slice(0, count);
+}
+
+export async function getRelatedRepositories(
+  repository: Repository,
+  limit = 5,
+  liveSearch: typeof searchGitHubRepositories = searchGitHubRepositories,
+): Promise<Repository[]> {
+  const topics = pickDescriptiveTopics(repository.topics, 2);
+  const language = repository.language.match(/^[a-z0-9.+#-]+$/i)?.[0];
+  // One descriptive topic plus the language casts a wider net than two
+  // ANDed topics, and findRelatedRepositories rescored by all shared topics.
+  const query = [
+    topics[0] ? `topic:${topics[0]}` : "",
+    language && language !== "Other" ? `language:${language}` : "",
+    "stars:>=50",
+  ]
+    .filter(Boolean)
+    .join(" ");
+
+  let candidates: Repository[] = [];
+  if (topics.length > 0 || language) {
+    try {
+      candidates = await liveSearch(query, "stars", 30);
+    } catch {
+      candidates = [];
+    }
+  }
+  const pool = candidates.length > 0 ? candidates : queryMockRepositories({});
+  const related = findRelatedRepositories(repository, pool, limit);
+  return related.length > 0
+    ? related
+    : findRelatedRepositories(repository, queryMockRepositories({}), limit);
 }
 
 export async function getRepository(

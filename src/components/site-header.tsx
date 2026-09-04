@@ -4,6 +4,7 @@ import { BookmarkSimple, Compass, MagnifyingGlass, Play } from "@phosphor-icons/
 import Image from "next/image";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import { useEffect, useRef } from "react";
 
 import { ThemeToggle } from "@/components/theme-toggle";
 import { AuthMenu } from "@/components/auth-menu";
@@ -16,8 +17,32 @@ const links = [
   { href: "/collections", label: "Collections", icon: BookmarkSimple },
 ] as const;
 
+function isTypingTarget(target: EventTarget | null): boolean {
+  if (!(target instanceof HTMLElement)) return false;
+  return (
+    target.isContentEditable ||
+    /^(input|textarea|select)$/i.test(target.tagName)
+  );
+}
+
 export function SiteHeader({ user }: { user: SessionUser | null }) {
   const pathname = usePathname();
+  const searchRef = useRef<HTMLInputElement>(null);
+
+  // "/" focuses the header search from anywhere, matching the hint in the box.
+  useEffect(() => {
+    function onKeyDown(event: KeyboardEvent) {
+      if (event.key !== "/" || event.metaKey || event.ctrlKey || event.altKey) return;
+      if (isTypingTarget(event.target)) return;
+      const input = searchRef.current;
+      if (!input || input.offsetParent === null) return;
+      event.preventDefault();
+      input.focus();
+      input.select();
+    }
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
+  }, []);
 
   return (
     <header className="sticky top-0 z-20 border-b border-border bg-surface/95 backdrop-blur-sm">
@@ -62,6 +87,7 @@ export function SiteHeader({ user }: { user: SessionUser | null }) {
                 className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-muted"
               />
               <input
+                ref={searchRef}
                 type="search"
                 name="q"
                 aria-label="Search repositories"

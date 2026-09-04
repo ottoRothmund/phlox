@@ -1,10 +1,11 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import Script from "next/script";
 
 import { AppShell } from "@/components/app-shell";
 import { CollectionsProvider } from "@/components/collections-provider";
 import { currentUser } from "@/lib/session";
+import { siteUrl } from "@/lib/site";
 
 import "./globals.css";
 
@@ -18,13 +19,38 @@ const geistMono = Geist_Mono({
   subsets: ["latin"],
 });
 
+const description =
+  "Find the GitHub repositories GitHub Explore misses: rising projects, deep cuts, and new releases, ranked by real growth.";
+
 export const metadata: Metadata = {
+  metadataBase: siteUrl(),
   title: {
     default: "Phlox - Discover remarkable repositories",
     template: "%s | Phlox",
   },
-  description:
-    "A modern discovery platform for rising, unusual, and useful GitHub repositories.",
+  description,
+  applicationName: "Phlox",
+  openGraph: {
+    type: "website",
+    siteName: "Phlox",
+    title: "Phlox - Discover remarkable repositories",
+    description,
+    images: [{ url: "/phlox-logo.png", width: 512, height: 505, alt: "Phlox" }],
+  },
+  twitter: {
+    card: "summary",
+    title: "Phlox - Discover remarkable repositories",
+    description,
+    images: ["/phlox-logo.png"],
+  },
+  robots: { index: true, follow: true },
+};
+
+export const viewport: Viewport = {
+  themeColor: [
+    { media: "(prefers-color-scheme: light)", color: "#f7f7f5" },
+    { media: "(prefers-color-scheme: dark)", color: "#111110" },
+  ],
 };
 
 export default async function RootLayout({ children }: LayoutProps<"/">) {
