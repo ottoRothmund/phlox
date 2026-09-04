@@ -1,8 +1,12 @@
 import { describe, expect, it } from "vitest";
 
 import {
+  applyRepositoryFilters,
   filterRepositories,
   findRelatedRepositories,
+  isRepositorySort,
+  parseAgeWindow,
+  parseStarFloor,
   sortRepositories,
   type Repository,
 } from "@/lib/repositories";
@@ -110,6 +114,62 @@ describe("repository discovery", () => {
     expect(sortRepositories(repositories, "stars")[0].fullName).toBe(
       "debian/debian",
     );
+  });
+
+  it("sorts by forks, creation date, and last push", () => {
+    expect(sortRepositories(repositories, "forks")[0].fullName).toBe("debian/debian");
+    expect(sortRepositories(repositories, "newest")[0].fullName).toBe("voidtools/orbit");
+    expect(sortRepositories(repositories, "updated")[0].fullName).toBe("debian/debian");
+  });
+
+  it("sorts by likes, then net score, then stars, and tolerates missing counts", () => {
+    const third: Repository = {
+      ...repositories[0],
+      id: 3,
+      fullName: "third/thing",
+      stars: 5,
+    };
+    const ranked = sortRepositories([...repositories, third], "likes", {
+      reactionCounts: {
+        "voidtools/orbit": { likes: 3, dislikes: 3 },
+        "third/thing": { likes: 3, dislikes: 0 },
+        // debian/debian has no row at all
+      },
+    });
+    expect(ranked.map((repository) => repository.fullName)).toEqual([
+      "third/thing",
+      "voidtools/orbit",
+      "debian/debian",
+    ]);
+  });
+
+  it("looks up reaction counts case-insensitively", () => {
+    const mixedCase: Repository = { ...repositories[1], fullName: "Debian/Debian" };
+    const ranked = sortRepositories([repositories[0], mixedCase], "likes", {
+      reactionCounts: { "debian/debian": { likes: 2, dislikes: 0 } },
+    });
+    expect(ranked[0].fullName).toBe("Debian/Debian");
+  });
+
+  it("filters by star floor and creation window", () => {
+    const now = Date.parse("2026-09-01T00:00:00Z");
+    expect(
+      applyRepositoryFilters(repositories, { minStars: 1_000 }, now).map((r) => r.fullName),
+    ).toEqual(["debian/debian"]);
+    expect(
+      applyRepositoryFilters(repositories, { maxAgeDays: 365 }, now).map((r) => r.fullName),
+    ).toEqual(["voidtools/orbit"]);
+    expect(applyRepositoryFilters(repositories, {}, now)).toBe(repositories);
+  });
+
+  it("only accepts the star floors and age windows the interface offers", () => {
+    expect(parseStarFloor("1000")).toBe(1_000);
+    expect(parseStarFloor("999")).toBe(0);
+    expect(parseStarFloor(undefined)).toBe(0);
+    expect(parseAgeWindow("30")).toBe(30);
+    expect(parseAgeWindow("31")).toBe(0);
+    expect(isRepositorySort("likes")).toBe(true);
+    expect(isRepositorySort("bogus")).toBe(false);
   });
 
 

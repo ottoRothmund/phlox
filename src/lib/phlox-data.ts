@@ -177,6 +177,36 @@ export async function getRepositoryReactionCounts(
   return counts;
 }
 
+export interface MostLikedRepository extends ReactionCounts {
+  fullName: string;
+}
+
+/**
+ * Repositories ordered by Phlox likes, most first. Only repositories with at
+ * least one like appear; a list of zero-like rows is not a "most liked" list.
+ */
+export async function getMostLikedRepositories(
+  limit = 30,
+): Promise<MostLikedRepository[]> {
+  if (!config()) return [];
+  const query = new URLSearchParams({
+    select: "repo_full_name,likes,dislikes",
+    likes: "gt.0",
+    order: "likes.desc,dislikes.asc,repo_full_name.asc",
+    limit: String(Math.min(Math.max(limit, 1), 100)),
+  });
+  const rows = await supabaseRequest<ReactionRow[]>(
+    `repository_reaction_totals?${query.toString()}`,
+  );
+  return rows
+    .filter((row) => isRepositoryName(row.repo_full_name))
+    .map((row) => ({
+      fullName: row.repo_full_name,
+      likes: Number(row.likes) || 0,
+      dislikes: Number(row.dislikes) || 0,
+    }));
+}
+
 export async function setRepositoryReaction({
   fullName,
   visitorId,

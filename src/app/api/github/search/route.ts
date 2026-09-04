@@ -4,16 +4,10 @@ import { createFixedWindowRateLimiter } from "@/lib/rate-limit";
 import { searchRepositories } from "@/lib/repository-service";
 import {
   MAX_SEARCH_QUERY_LENGTH,
-  type RepositorySort,
+  isRepositorySort,
+  parseAgeWindow,
+  parseStarFloor,
 } from "@/lib/repositories";
-
-const supportedSorts = new Set<RepositorySort>([
-  "relevance",
-  "rising",
-  "trending",
-  "stars",
-  "updated",
-]);
 
 const windowMs = 60_000;
 const globalLimit = createFixedWindowRateLimiter({
@@ -49,8 +43,12 @@ function rateLimited(retryAfterSeconds: number) {
 
 export async function GET(request: NextRequest) {
   const query = request.nextUrl.searchParams.get("q")?.trim() || "";
-  const requestedSort = request.nextUrl.searchParams.get("sort") as RepositorySort;
-  const sort = supportedSorts.has(requestedSort) ? requestedSort : "relevance";
+  const requestedSort = request.nextUrl.searchParams.get("sort");
+  const sort = isRepositorySort(requestedSort) ? requestedSort : "relevance";
+  const filters = {
+    minStars: parseStarFloor(request.nextUrl.searchParams.get("stars") ?? undefined),
+    maxAgeDays: parseAgeWindow(request.nextUrl.searchParams.get("age") ?? undefined),
+  };
 
   if (!query) {
     return Response.json(
@@ -76,7 +74,7 @@ export async function GET(request: NextRequest) {
     return rateLimited(globalDecision.retryAfterSeconds);
   }
 
-  const result = await searchRepositories({ query, sort, preferLive: true });
+  const result = await searchRepositories({ query, sort, filters, preferLive: true });
   return Response.json(result, {
     headers: {
       "Cache-Control": "public, s-maxage=300, stale-while-revalidate=600",

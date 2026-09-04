@@ -1,9 +1,11 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 import {
+  buildDiscoveryPoolQuery,
   buildGitHubSearchQuery,
   getGitHubRepository,
   getGitHubRepositoryReadme,
+  githubSortParameter,
   isPublicGitHubRepository,
   mapGitHubRepository,
   searchGitHubRepositories,
@@ -232,6 +234,18 @@ describe("GitHub repository mapping", () => {
     expect(risingPinnedUrl.match(/created:/g)).toHaveLength(1);
 
     expect(trendingUrl).toContain("pushed:>");
+  });
+
+  it("maps forks to GitHub's fork sort and newest to a young star-ordered pool", () => {
+    expect(githubSortParameter("forks")).toBe("&sort=forks&order=desc");
+    expect(githubSortParameter("likes")).toBe("&sort=stars&order=desc");
+    expect(githubSortParameter("newest")).toBe("&sort=stars&order=desc");
+
+    expect(buildDiscoveryPoolQuery("forge", "newest")).toMatch(/created:>\d{4}-\d{2}-\d{2}$/);
+    expect(buildDiscoveryPoolQuery("forge created:>2024-01-01", "newest")).toBe(
+      "forge created:>2024-01-01",
+    );
+    expect(buildDiscoveryPoolQuery("forge", "forks")).toBe("forge");
   });
 
   it("does not infer verification from a repository's star count", () => {

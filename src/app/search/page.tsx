@@ -3,19 +3,26 @@ import type { Metadata } from "next";
 import Link from "next/link";
 
 import { RepositoryList } from "@/components/repository-list";
-import { getRepositoryReactionCounts } from "@/lib/phlox-data";
+import { SortControls } from "@/components/sort-controls";
 import { searchRepositories } from "@/lib/repository-service";
 import {
   MAX_SEARCH_QUERY_LENGTH,
+  isRepositorySort,
+  parseAgeWindow,
+  parseStarFloor,
   type RepositorySort,
 } from "@/lib/repositories";
 
 export const metadata: Metadata = { title: "Search" };
 
-const sorts: { value: RepositorySort; label: string }[] = [
-  { value: "relevance", label: "Best match" },
-  { value: "rising", label: "Rising" },
-  { value: "updated", label: "Recently active" },
+const searchSorts: RepositorySort[] = [
+  "relevance",
+  "rising",
+  "stars",
+  "forks",
+  "likes",
+  "newest",
+  "updated",
 ];
 
 function first(value: string | string[] | undefined): string {
@@ -29,18 +36,48 @@ export default async function SearchPage({
 }) {
   const params = await searchParams;
   const query = first(params.q).trim().slice(0, MAX_SEARCH_QUERY_LENGTH);
-  const requestedSort = first(params.sort) as RepositorySort;
-  const sort = sorts.some((item) => item.value === requestedSort)
-    ? requestedSort
-    : "relevance";
+  const requestedSort = first(params.sort);
+  const sort: RepositorySort =
+    isRepositorySort(requestedSort) && searchSorts.includes(requestedSort)
+      ? requestedSort
+      : "relevance";
+  const minStars = parseStarFloor(first(params.stars));
+  const maxAgeDays = parseAgeWindow(first(params.age));
   const result = await searchRepositories({
     query,
     sort,
-    preferLive: Boolean(query),
+    filters: { minStars, maxAgeDays },
+    preferLive: Boolean(query) || sort === "likes",
   });
-  const reactionCounts = await getRepositoryReactionCounts(
-    result.repositories.map((repository) => repository.fullName),
-  ).catch(() => ({}));
+
+  const hrefFor = (changes: {
+    sort?: RepositorySort;
+    minStars?: number;
+    maxAgeDays?: number;
+  }) => {
+    const nextSort = changes.sort ?? sort;
+    const nextStars = changes.minStars ?? minStars;
+    const nextAge = changes.maxAgeDays ?? maxAgeDays;
+    const next = new URLSearchParams();
+    if (query) next.set("q", query);
+    if (nextSort !== "relevance") next.set("sort", nextSort);
+    if (nextStars > 0) next.set("stars", String(nextStars));
+    if (nextAge > 0) next.set("age", String(nextAge));
+    const serialized = next.toString();
+    return serialized ? `/search?${serialized}` : "/search";
+  };
+
+  const heading = query
+    ? `Results for “${query}”`
+    : sort === "likes" && result.source === "phlox"
+      ? "Most liked on Phlox"
+      : "Popular in the index";
+  const sourceLabel =
+    result.source === "github"
+      ? "GitHub"
+      : result.source === "phlox"
+        ? "Phlox reactions"
+        : "the Phlox index";
 
   return (
     <div className="mx-auto max-w-[1200px] px-4 py-10 sm:px-6 sm:py-14">
@@ -58,6 +95,9 @@ export default async function SearchPage({
             size={19}
             className="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 text-muted"
           />
+          {sort !== "relevance" ? <input type="hidden" name="sort" value={sort} /> : null}
+          {minStars > 0 ? <input type="hidden" name="stars" value={minStars} /> : null}
+          {maxAgeDays > 0 ? <input type="hidden" name="age" value={maxAgeDays} /> : null}
           <input
             type="search"
             name="q"
@@ -96,36 +136,30 @@ export default async function SearchPage({
         </section>
       ) : null}
 
-      <div className="mt-9 flex flex-col gap-4 border-b border-border pb-4 sm:flex-row sm:items-end sm:justify-between">
+      <div className="mt-9 flex flex-col gap-4 border-b border-border pb-4">
         <div>
-          <h2 className="text-lg font-semibold">
-            {query ? `Results for “${query}”` : "Popular in the index"}
-          </h2>
+          <h2 className="text-lg font-semibold">{heading}</h2>
           <p className="mt-1 text-xs text-muted">
-            {result.repositories.length} results from {result.source === "github" ? "GitHub" : "the Phlox index"}
+            {result.repositories.length} results from {sourceLabel}
           </p>
         </div>
-        <nav aria-label="Sort search results" className="flex gap-4">
-          {sorts.map((item) => {
-            const href = `/search?q=${encodeURIComponent(query)}&sort=${item.value}`;
-            return (
-              <Link
-                key={item.value}
-                href={href}
-                aria-current={sort === item.value ? "page" : undefined}
-                className="text-xs text-muted hover:text-foreground aria-[current=page]:font-semibold aria-[current=page]:text-foreground"
-              >
-                {item.label}
-              </Link>
-            );
-          })}
-        </nav>
+        <SortControls
+          sort={sort}
+          minStars={minStars}
+          maxAgeDays={maxAgeDays}
+          hrefFor={hrefFor}
+          sorts={searchSorts}
+        />
       </div>
       <div className="mt-3">
         <RepositoryList
           repositories={result.repositories}
-          reactionCounts={reactionCounts}
-          emptyMessage="Try fewer terms or search for a broader topic."
+          reactionCounts={result.reactionCounts}
+          emptyMessage={
+            sort === "likes" && !query
+              ? "Nothing has been liked yet. Like a few repositories and they will show up here."
+              : "Try fewer terms or search for a broader topic."
+          }
         />
       </div>
     </div>

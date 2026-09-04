@@ -162,6 +162,8 @@ export function RepositoryFilterRail({
   language,
   sort,
   query,
+  minStars = 0,
+  maxAgeDays = 0,
 }: {
   topics: TopicCatalogItem[];
   languages: string[];
@@ -169,6 +171,8 @@ export function RepositoryFilterRail({
   language: string;
   sort: RepositorySort;
   query: string;
+  minStars?: number;
+  maxAgeDays?: number;
 }) {
   function filterHref(key: "topic" | "language", value: string): string {
     const next = new URLSearchParams();
@@ -176,6 +180,8 @@ export function RepositoryFilterRail({
     if (topic && key !== "topic") next.set("topic", topic);
     if (language && key !== "language") next.set("language", language);
     if (query) next.set("q", query);
+    if (minStars > 0) next.set("stars", String(minStars));
+    if (maxAgeDays > 0) next.set("age", String(maxAgeDays));
     if (value) next.set(key, value);
     return `/explore?${next.toString()}`;
   }

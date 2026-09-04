@@ -1,25 +1,21 @@
 import type { Metadata } from "next";
-import Link from "next/link";
 
 import { RepositoryList } from "@/components/repository-list";
+import { SortControls } from "@/components/sort-controls";
 import { RepositoryFilterRail } from "@/components/topic-navigation";
 import { discoveryTopics } from "@/lib/mock-data";
-import {
-  getRepositoryReactionCounts,
-  getTopicCatalog,
-} from "@/lib/phlox-data";
+import { getTopicCatalog } from "@/lib/phlox-data";
 import { mergeTopicCatalog } from "@/lib/repository-taxonomy";
 import { searchRepositories } from "@/lib/repository-service";
-import type { RepositorySort } from "@/lib/repositories";
+import {
+  isRepositorySort,
+  parseAgeWindow,
+  parseStarFloor,
+  sortOptions,
+  type RepositorySort,
+} from "@/lib/repositories";
 
 export const metadata: Metadata = { title: "Explore" };
-
-const sorts: { value: RepositorySort; label: string }[] = [
-  { value: "rising", label: "Rising" },
-  { value: "trending", label: "Trending" },
-  { value: "stars", label: "Most starred" },
-  { value: "updated", label: "Recently active" },
-];
 
 const commonLanguages = ["Rust", "Go", "TypeScript", "Python", "Nix", "Zig"];
 
@@ -33,13 +29,13 @@ export default async function ExplorePage({
   searchParams: Promise<Record<string, string | string[] | undefined>>;
 }) {
   const params = await searchParams;
-  const requestedSort = first(params.sort) as RepositorySort;
-  const sort = sorts.some((item) => item.value === requestedSort)
-    ? requestedSort
-    : "rising";
+  const requestedSort = first(params.sort);
+  const sort: RepositorySort = isRepositorySort(requestedSort) ? requestedSort : "rising";
   const topic = first(params.topic);
   const language = first(params.language);
   const query = first(params.q);
+  const minStars = parseStarFloor(first(params.stars));
+  const maxAgeDays = parseAgeWindow(first(params.age));
   const discoveryQuery = query || (!topic && !language ? "stars:>50" : "");
   const [result, discoveredTopics] = await Promise.all([
     searchRepositories({
@@ -47,6 +43,7 @@ export default async function ExplorePage({
       sort,
       topic,
       language,
+      filters: { minStars, maxAgeDays },
       limit: 30,
       preferLive: true,
     }),
@@ -66,19 +63,33 @@ export default async function ExplorePage({
       ...commonLanguages,
     ]),
   ].slice(0, 16);
-  const reactionCounts = await getRepositoryReactionCounts(
-    repositories.map((repository) => repository.fullName),
-  ).catch(() => ({}));
 
-  const filterHref = (key: string, value: string) => {
+  const hrefFor = (changes: {
+    sort?: RepositorySort;
+    minStars?: number;
+    maxAgeDays?: number;
+  }) => {
+    const nextSort = changes.sort ?? sort;
+    const nextStars = changes.minStars ?? minStars;
+    const nextAge = changes.maxAgeDays ?? maxAgeDays;
     const next = new URLSearchParams();
-    if (sort !== "rising") next.set("sort", sort);
-    if (topic && key !== "topic") next.set("topic", topic);
-    if (language && key !== "language") next.set("language", language);
+    if (nextSort !== "rising") next.set("sort", nextSort);
+    if (topic) next.set("topic", topic);
+    if (language) next.set("language", language);
     if (query) next.set("q", query);
-    if (value) next.set(key, value);
-    return `/explore?${next.toString()}`;
+    if (nextStars > 0) next.set("stars", String(nextStars));
+    if (nextAge > 0) next.set("age", String(nextAge));
+    const serialized = next.toString();
+    return serialized ? `/explore?${serialized}` : "/explore";
   };
+
+  const sourceLabel =
+    result.source === "github"
+      ? "Live GitHub data"
+      : result.source === "phlox"
+        ? "Ranked by Phlox likes, hydrated from GitHub"
+        : "Indexed fallback";
+  const activeSort = sortOptions.find((option) => option.value === sort);
 
   return (
     <div className="mx-auto max-w-[1440px] px-4 py-10 sm:px-6 sm:py-14">
@@ -98,27 +109,26 @@ export default async function ExplorePage({
             language={language}
             sort={sort}
             query={query}
+            minStars={minStars}
+            maxAgeDays={maxAgeDays}
           />
         </aside>
 
         <div className="min-w-0">
-          <div className="flex flex-col gap-4 border-b border-border pb-4 sm:flex-row sm:items-center sm:justify-between">
-            <nav aria-label="Sort repositories" className="flex gap-4 overflow-x-auto">
-              {sorts.map((item) => (
-                <Link
-                  key={item.value}
-                  href={filterHref("sort", item.value)}
-                  aria-current={sort === item.value ? "page" : undefined}
-                  className="shrink-0 text-sm text-muted hover:text-foreground aria-[current=page]:font-semibold aria-[current=page]:text-foreground"
-                >
-                  {item.label}
-                </Link>
-              ))}
-            </nav>
+          <div className="flex flex-col gap-4 border-b border-border pb-4 lg:flex-row lg:items-start lg:justify-between">
+            <SortControls
+              sort={sort}
+              minStars={minStars}
+              maxAgeDays={maxAgeDays}
+              hrefFor={hrefFor}
+              sorts={["rising", "trending", "stars", "forks", "likes", "newest", "updated"]}
+            />
             <form action="/explore" className="flex gap-2">
               {sort !== "rising" ? <input type="hidden" name="sort" value={sort} /> : null}
               {topic ? <input type="hidden" name="topic" value={topic} /> : null}
               {language ? <input type="hidden" name="language" value={language} /> : null}
+              {minStars > 0 ? <input type="hidden" name="stars" value={minStars} /> : null}
+              {maxAgeDays > 0 ? <input type="hidden" name="age" value={maxAgeDays} /> : null}
               <input
                 type="search"
                 name="q"
@@ -129,14 +139,22 @@ export default async function ExplorePage({
               />
             </form>
           </div>
-          <div className="mt-3 flex items-center justify-between text-xs text-muted">
-            <span>{repositories.length} repositories</span>
-            <span>{result.source === "github" ? "Live GitHub data" : "Indexed fallback"}</span>
+          <div className="mt-3 flex items-center justify-between gap-4 text-xs text-muted">
+            <span>
+              {repositories.length} repositories
+              {activeSort ? <span className="text-faint"> · {activeSort.description.toLowerCase()}</span> : null}
+            </span>
+            <span className="text-right">{sourceLabel}</span>
           </div>
           <div className="mt-3">
             <RepositoryList
               repositories={repositories}
-              reactionCounts={reactionCounts}
+              reactionCounts={result.reactionCounts}
+              emptyMessage={
+                sort === "likes"
+                  ? "Nothing has been liked yet with these filters. Like a few repositories and they will show up here."
+                  : "No repositories match these filters."
+              }
             />
           </div>
         </div>

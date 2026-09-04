@@ -3,9 +3,92 @@ export type RepositorySort =
   | "rising"
   | "trending"
   | "stars"
+  | "forks"
+  | "likes"
+  | "newest"
   | "updated";
 
 export const MAX_SEARCH_QUERY_LENGTH = 240;
+
+export interface SortOption {
+  value: RepositorySort;
+  label: string;
+  description: string;
+}
+
+/**
+ * Every sort the interface offers, in display order. Pages and the JSON API
+ * read from this list so a new sort only has to be added once.
+ */
+export const sortOptions: SortOption[] = [
+  { value: "rising", label: "Rising", description: "Weekly growth relative to size" },
+  { value: "trending", label: "Trending", description: "Absolute weekly growth, size-dampened" },
+  { value: "stars", label: "Most starred", description: "Total stars" },
+  { value: "forks", label: "Most forked", description: "Total forks" },
+  { value: "likes", label: "Most liked", description: "Phlox likes, then net score" },
+  { value: "newest", label: "Newest", description: "Repository creation date" },
+  { value: "updated", label: "Recently active", description: "Last push" },
+  { value: "relevance", label: "Best match", description: "GitHub's own ranking" },
+];
+
+export function isRepositorySort(value: unknown): value is RepositorySort {
+  return sortOptions.some((option) => option.value === value);
+}
+
+/** Star floors offered as a filter. 0 means no floor. */
+export const starFloors = [0, 100, 1_000, 10_000] as const;
+
+/** Creation-age windows offered as a filter, in days. 0 means any age. */
+export const ageWindows = [
+  { days: 0, label: "Any age" },
+  { days: 7, label: "This week" },
+  { days: 30, label: "This month" },
+  { days: 365, label: "This year" },
+] as const;
+
+export interface RepositoryFilters {
+  /** Keep repositories with at least this many stars. */
+  minStars?: number;
+  /** Keep repositories created within the last N days. */
+  maxAgeDays?: number;
+}
+
+export function parseStarFloor(value: string | undefined): number {
+  const parsed = Number.parseInt(value ?? "", 10);
+  return starFloors.includes(parsed as (typeof starFloors)[number]) ? parsed : 0;
+}
+
+export function parseAgeWindow(value: string | undefined): number {
+  const parsed = Number.parseInt(value ?? "", 10);
+  return ageWindows.some((window) => window.days === parsed) ? parsed : 0;
+}
+
+export function applyRepositoryFilters(
+  repositories: Repository[],
+  filters: RepositoryFilters,
+  now = Date.now(),
+): Repository[] {
+  const minStars = filters.minStars ?? 0;
+  const maxAgeDays = filters.maxAgeDays ?? 0;
+  if (minStars <= 0 && maxAgeDays <= 0) return repositories;
+
+  const oldestAllowed = now - maxAgeDays * 86_400_000;
+  return repositories.filter(
+    (repository) =>
+      repository.stars >= minStars &&
+      (maxAgeDays <= 0 || Date.parse(repository.createdAt) >= oldestAllowed),
+  );
+}
+
+export interface LikeCounts {
+  likes: number;
+  dislikes: number;
+}
+
+export interface SortContext {
+  /** Reaction totals keyed by lower-cased full name. Required for "likes". */
+  reactionCounts?: Record<string, LikeCounts>;
+}
 
 export interface Repository {
   id: number;
@@ -99,13 +182,34 @@ export function filterRepositories(
 export function sortRepositories(
   repositories: Repository[],
   sort: RepositorySort,
+  context: SortContext = {},
 ): Repository[] {
   if (sort === "relevance") return [...repositories];
+
+  const counts = context.reactionCounts ?? {};
+  const likesFor = (repository: Repository): LikeCounts =>
+    counts[repository.fullName.toLocaleLowerCase()] ?? { likes: 0, dislikes: 0 };
 
   return [...repositories].sort((a, b) => {
     switch (sort) {
       case "stars":
         return b.stars - a.stars;
+      case "forks":
+        return b.forks - a.forks;
+      case "likes": {
+        const left = likesFor(a);
+        const right = likesFor(b);
+        // Likes first; a repo with 5 likes and 4 dislikes still outranks one
+        // with 1 like and 0 dislikes because more people bothered. Net score
+        // breaks ties, then stars so unrated repos have a stable order.
+        return (
+          right.likes - left.likes ||
+          right.likes - right.dislikes - (left.likes - left.dislikes) ||
+          b.stars - a.stars
+        );
+      }
+      case "newest":
+        return Date.parse(b.createdAt) - Date.parse(a.createdAt);
       case "updated":
         return Date.parse(b.pushedAt) - Date.parse(a.pushedAt);
       case "trending":

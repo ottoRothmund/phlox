@@ -122,8 +122,100 @@ describe("repository service", () => {
     expect(liveSearch).toHaveBeenCalledWith(
       "topic:terminal language:Rust",
       "rising",
-      24,
+      48,
     );
+    expect(result.source).toBe("github");
+  });
+
+  it("fetches a larger pool for locally reranked sorts but not for relevance", async () => {
+    const liveSearch = vi.fn().mockResolvedValue([mockRepositories[0]]);
+
+    await searchRepositories({ query: "rust", sort: "relevance", limit: 24, liveSearch });
+    expect(liveSearch).toHaveBeenLastCalledWith(expect.any(String), "relevance", 24);
+
+    await searchRepositories({ query: "rust", sort: "newest", limit: 24, liveSearch });
+    expect(liveSearch).toHaveBeenLastCalledWith(expect.any(String), "newest", 48);
+  });
+
+  it("passes star floor and age window to GitHub as qualifiers and filters the pool", async () => {
+    const liveSearch = vi
+      .fn()
+      .mockResolvedValue([mockRepositories[0], { ...mockRepositories[1], stars: 40 }]);
+
+    const result = await searchRepositories({
+      query: "terminal",
+      sort: "stars",
+      filters: { minStars: 100, maxAgeDays: 365 },
+      liveSearch,
+    });
+
+    const [liveQuery] = liveSearch.mock.calls[0];
+    expect(liveQuery).toContain("stars:>=100");
+    expect(liveQuery).toMatch(/created:>=\d{4}-\d{2}-\d{2}/);
+    // The 40-star copy is dropped even though GitHub returned it.
+    expect(result.repositories.map((repository) => repository.stars)).not.toContain(40);
+  });
+
+  it("ranks by Phlox likes using the reaction totals it loaded", async () => {
+    const liveSearch = vi
+      .fn()
+      .mockResolvedValue([mockRepositories[0], mockRepositories[1]]);
+    const loadReactionCounts = vi.fn().mockResolvedValue({
+      [mockRepositories[0].fullName.toLowerCase()]: { likes: 1, dislikes: 0 },
+      [mockRepositories[1].fullName.toLowerCase()]: { likes: 7, dislikes: 2 },
+    });
+
+    const result = await searchRepositories({
+      query: "terminal",
+      sort: "likes",
+      liveSearch,
+      loadReactionCounts,
+    });
+
+    expect(result.repositories[0].fullName).toBe(mockRepositories[1].fullName);
+    expect(result.reactionCounts[mockRepositories[1].fullName.toLowerCase()]).toEqual({
+      likes: 7,
+      dislikes: 2,
+    });
+  });
+
+  it("serves most liked without a query from Phlox reactions, hydrated live", async () => {
+    const liveSearch = vi.fn();
+    const loadMostLiked = vi.fn().mockResolvedValue([
+      { fullName: "sxyazi/yazi", likes: 9, dislikes: 1 },
+      { fullName: "astral-sh/uv", likes: 4, dislikes: 0 },
+    ]);
+    const liveGet = vi.fn(async (owner: string, name: string) =>
+      mockRepositories.find((repository) => repository.fullName === `${owner}/${name}`) ?? null,
+    );
+
+    const result = await searchRepositories({
+      sort: "likes",
+      liveSearch,
+      liveGet,
+      loadMostLiked,
+    });
+
+    expect(liveSearch).not.toHaveBeenCalled();
+    expect(result.source).toBe("phlox");
+    expect(result.repositories.map((repository) => repository.fullName)).toEqual([
+      "sxyazi/yazi",
+      "astral-sh/uv",
+    ]);
+  });
+
+  it("falls through to a normal search when nothing has been liked yet", async () => {
+    const liveSearch = vi.fn().mockResolvedValue([mockRepositories[0]]);
+    const loadMostLiked = vi.fn().mockResolvedValue([]);
+
+    const result = await searchRepositories({
+      sort: "likes",
+      topic: "terminal",
+      liveSearch,
+      loadMostLiked,
+    });
+
+    expect(liveSearch).toHaveBeenCalled();
     expect(result.source).toBe("github");
   });
 

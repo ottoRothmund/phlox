@@ -158,7 +158,31 @@ export function buildDiscoveryPoolQuery(
   if (sort === "trending" && !hasQualifier("pushed")) {
     return `${query} pushed:>${isoDaysAgo(14)}`.trim();
   }
+  // GitHub cannot sort by creation date. Restrict the pool to young
+  // repositories ordered by stars, then the client sorts by createdAt, so
+  // "newest" means "new and already noticed" rather than the last 30 empty
+  // repositories someone pushed.
+  if (sort === "newest" && !hasQualifier("created")) {
+    return `${query} created:>${isoDaysAgo(60)}`.trim();
+  }
   return query;
+}
+
+/**
+ * The GitHub-side sort for a Phlox sort. Only stars, forks, and updated exist
+ * upstream; every other sort fetches a star-ordered pool and reranks locally.
+ */
+export function githubSortParameter(sort: RepositorySort): string {
+  switch (sort) {
+    case "relevance":
+      return "";
+    case "updated":
+      return "&sort=updated&order=desc";
+    case "forks":
+      return "&sort=forks&order=desc";
+    default:
+      return "&sort=stars&order=desc";
+  }
 }
 
 export function isPublicGitHubRepository(
@@ -173,12 +197,7 @@ export async function searchGitHubRepositories(
   limit = 24,
   registerTopics: typeof registerRepositoryTopics = registerRepositoryTopics,
 ): Promise<Repository[]> {
-  const githubSort =
-    sort === "updated"
-      ? "&sort=updated&order=desc"
-      : sort === "relevance"
-        ? ""
-        : "&sort=stars&order=desc";
+  const githubSort = githubSortParameter(sort);
   const publicQuery = buildGitHubSearchQuery(
     buildDiscoveryPoolQuery(query, sort),
   );

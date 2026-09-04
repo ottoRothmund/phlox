@@ -4,6 +4,7 @@ import {
   FolderOpen,
   Plus,
   Trash,
+  X,
 } from "@phosphor-icons/react";
 import Link from "next/link";
 import { useState, type FormEvent } from "react";
@@ -11,11 +12,42 @@ import { useState, type FormEvent } from "react";
 import { useCollections } from "@/components/collections-provider";
 import { resolveCollectionRepositories } from "@/lib/collections";
 import { mockRepositories } from "@/lib/mock-data";
+import {
+  sortRepositories,
+  type Repository,
+  type RepositorySort,
+} from "@/lib/repositories";
+
+export type CollectionSort = "saved" | "name" | RepositorySort;
+
+const collectionSorts: { value: CollectionSort; label: string }[] = [
+  { value: "saved", label: "Saved order" },
+  { value: "stars", label: "Most starred" },
+  { value: "forks", label: "Most forked" },
+  { value: "newest", label: "Newest" },
+  { value: "updated", label: "Recently active" },
+  { value: "name", label: "Name" },
+];
+
+export function sortCollectionRepositories(
+  repositories: Repository[],
+  sort: CollectionSort,
+): Repository[] {
+  if (sort === "saved") return repositories;
+  if (sort === "name") {
+    return [...repositories].sort((a, b) =>
+      a.name.localeCompare(b.name, "en", { sensitivity: "base" }),
+    );
+  }
+  return sortRepositories(repositories, sort);
+}
 
 export function CollectionsView() {
-  const { collections, createCollection, deleteCollection } = useCollections();
+  const { collections, createCollection, deleteCollection, toggleRepository } =
+    useCollections();
   const [name, setName] = useState("");
   const [description, setDescription] = useState("");
+  const [sort, setSort] = useState<CollectionSort>("saved");
 
   function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -25,14 +57,40 @@ export function CollectionsView() {
     setDescription("");
   }
 
+  const totalSaved = collections.reduce(
+    (sum, collection) => sum + collection.repoFullNames.length,
+    0,
+  );
+
   return (
     <div className="grid gap-10 lg:grid-cols-[minmax(0,1fr)_320px]">
       <div>
+        <div className="flex flex-wrap items-center justify-between gap-3 pb-3 text-xs text-muted">
+          <span>
+            {collections.length} {collections.length === 1 ? "collection" : "collections"} ·{" "}
+            {totalSaved} saved
+          </span>
+          <label className="flex items-center gap-2">
+            <span>Sort</span>
+            <select
+              aria-label="Sort saved repositories"
+              value={sort}
+              onChange={(event) => setSort(event.target.value as CollectionSort)}
+              className="input h-8 px-2 text-xs"
+            >
+              {collectionSorts.map((option) => (
+                <option key={option.value} value={option.value}>
+                  {option.label}
+                </option>
+              ))}
+            </select>
+          </label>
+        </div>
         <div className="border-t border-border">
           {collections.map((collection) => {
-            const repositories = resolveCollectionRepositories(
-              collection,
-              mockRepositories,
+            const repositories = sortCollectionRepositories(
+              resolveCollectionRepositories(collection, mockRepositories),
+              sort,
             );
 
             return (
@@ -59,28 +117,39 @@ export function CollectionsView() {
                 {repositories.length > 0 ? (
                   <div className="mt-5 grid gap-px border border-border bg-border sm:grid-cols-2">
                     {repositories.map((repository) => (
-                      <Link
-                        key={repository.id}
-                        href={`/repo/${repository.owner}/${repository.name}`}
-                        className="group bg-surface p-4 hover:bg-subtle"
-                      >
-                        <div className="flex items-center justify-between gap-3">
-                          <span className="truncate text-sm font-semibold">
-                            {repository.fullName}
-                          </span>
-                          <span className="font-mono text-[11px] text-positive">
-                            {repository.growthEstimated ? "~" : ""}+
-                            {repository.starDelta7d.toLocaleString("en-US")}
-                          </span>
-                        </div>
-                        <p className="mt-2 line-clamp-2 text-xs leading-5 text-muted">
-                          {repository.description}
-                        </p>
-                        <div className="mt-3 flex items-center gap-3 text-[11px] text-muted">
-                          <span className="text-foreground">{repository.language}</span>
-                          <span>{repository.stars.toLocaleString("en-US")} stars</span>
-                        </div>
-                      </Link>
+                      <div key={repository.id} className="group relative bg-surface hover:bg-subtle">
+                        <Link
+                          href={`/repo/${repository.owner}/${repository.name}`}
+                          className="block p-4 pr-10"
+                        >
+                          <div className="flex items-center justify-between gap-3">
+                            <span className="truncate text-sm font-semibold">
+                              {repository.fullName}
+                            </span>
+                            <span className="font-mono text-[11px] text-positive">
+                              {repository.growthEstimated ? "~" : ""}+
+                              {repository.starDelta7d.toLocaleString("en-US")}
+                            </span>
+                          </div>
+                          <p className="mt-2 line-clamp-2 text-xs leading-5 text-muted">
+                            {repository.description}
+                          </p>
+                          <div className="mt-3 flex items-center gap-3 text-[11px] text-muted">
+                            <span className="text-foreground">{repository.language}</span>
+                            <span>{repository.stars.toLocaleString("en-US")} stars</span>
+                            <span>{repository.forks.toLocaleString("en-US")} forks</span>
+                          </div>
+                        </Link>
+                        <button
+                          type="button"
+                          aria-label={`Remove ${repository.fullName} from ${collection.name}`}
+                          title="Remove from collection"
+                          className="absolute right-2 top-2 flex h-7 w-7 items-center justify-center text-faint opacity-0 transition-opacity hover:text-foreground focus-visible:opacity-100 group-hover:opacity-100"
+                          onClick={() => toggleRepository(collection.id, repository)}
+                        >
+                          <X size={13} />
+                        </button>
+                      </div>
                     ))}
                   </div>
                 ) : (

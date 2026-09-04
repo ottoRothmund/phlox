@@ -9,10 +9,7 @@ import Link from "next/link";
 import { RepositoryList } from "@/components/repository-list";
 import { TopicBrowse } from "@/components/topic-navigation";
 import { discoveryTopics, queryMockRepositories } from "@/lib/mock-data";
-import {
-  getRepositoryReactionCounts,
-  getTopicCatalog,
-} from "@/lib/phlox-data";
+import { getTopicCatalog } from "@/lib/phlox-data";
 import { languageColor, mergeTopicCatalog } from "@/lib/repository-taxonomy";
 import { searchRepositories } from "@/lib/repository-service";
 
@@ -41,9 +38,7 @@ export default async function Home() {
     fallbackTopics,
     18,
   );
-  const reactionCounts = await getRepositoryReactionCounts(
-    rising.map((repository) => repository.fullName),
-  ).catch(() => ({}));
+  const reactionCounts = result.reactionCounts;
   const underTheRadar = queryMockRepositories({ sort: "rising" })
     .filter((repository) => repository.stars < 10_000)
     .slice(0, 4);

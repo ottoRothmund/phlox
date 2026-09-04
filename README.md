@@ -66,7 +66,24 @@ src/test/         Shared test setup
 - API failures and rate limits fall back to the typed local discovery index.
 - Explore feeds use deterministic local signals so the first version remains stable.
 - Likes, dislikes, and collections are persisted in browser local storage.
-- `GET /api/github/search?q=rust&sort=rising` exposes the same search service as JSON.
+- `GET /api/github/search?q=rust&sort=rising` exposes the same search service as JSON. Optional `stars` (100, 1000, 10000) and `age` (7, 30, 365 days) filters apply to every sort.
 - `POST /api/feed` with `{ taste, exclude, seed }` returns one feed batch. Rate-limited to 8 batches/minute globally with a token (3 without), since each batch is three GitHub searches.
+
+## Sorting
+
+Explore and Search share one sort list (`sortOptions` in `src/lib/repositories.ts`):
+
+| Sort | How it works |
+| --- | --- |
+| Rising | Weekly star growth relative to prior size, with a Bayesian prior and mega-repo demotion |
+| Trending | Absolute weekly growth dampened by sqrt of prior size |
+| Most starred | GitHub `sort=stars` |
+| Most forked | GitHub `sort=forks` |
+| Most liked | Phlox likes, then net score (likes − dislikes), then stars. With no query it lists the repositories liked most on Phlox, hydrated live from GitHub. With a query it reranks the GitHub pool by reaction totals. |
+| Newest | GitHub cannot sort by creation date, so this fetches a star-ordered pool created in the last 60 days and sorts by `created_at` locally |
+| Recently active | GitHub `sort=updated` |
+| Best match | GitHub's own ranking, search only |
+
+Locally reranked sorts fetch a 2× pool (max 60) so there is something to reorder beyond GitHub's top-N. Collections have their own client-side sort (saved order, stars, forks, newest, active, name).
 
 The local index contains realistic public repository metadata and clearly identifies itself in the interface as a curated index.
