@@ -19,6 +19,7 @@ const nextConfig: NextConfig = {
     root: process.cwd(),
   },
   poweredByHeader: false,
+  output: process.env.NEXT_OUTPUT === "standalone" ? "standalone" : undefined,
   async headers() {
     return [{ source: "/(.*)", headers: securityHeaders }];
   },
