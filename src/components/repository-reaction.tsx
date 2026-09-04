@@ -14,10 +14,15 @@ export function RepositoryReaction({
   fullName,
   compact = false,
   initialCounts = emptyReactionCounts,
+  onReact,
+  size = "default",
 }: {
   fullName: string;
   compact?: boolean;
   initialCounts?: ReactionCounts;
+  /** Fires after each toggle with the new reaction (null when cleared). */
+  onReact?: (reaction: RepositoryReactionValue | null) => void;
+  size?: "default" | "large";
 }) {
   const storageKey = `phlox.reaction.${fullName}`;
   const [reaction, setReaction] = useState<RepositoryReactionValue | null>(null);
@@ -65,6 +70,7 @@ export function RepositoryReaction({
     const nextReaction = reaction === value ? null : value;
     setCounts(adjustedCounts(reaction, nextReaction));
     setReaction(nextReaction);
+    onReact?.(nextReaction);
 
     try {
       if (nextReaction) {
@@ -118,10 +124,10 @@ export function RepositoryReaction({
           type="button"
           aria-label={`${label} ${fullName}`}
           aria-pressed={reaction === value}
-          className={`inline-flex h-8 items-center justify-center gap-1.5 bg-surface px-2 text-xs text-muted hover:bg-subtle hover:text-foreground aria-pressed:bg-foreground aria-pressed:text-background ${compact ? "min-w-12 px-1.5" : "min-w-20"}`}
+          className={`inline-flex items-center justify-center gap-1.5 bg-surface text-muted hover:bg-subtle hover:text-foreground aria-pressed:bg-foreground aria-pressed:text-background ${size === "large" ? "h-11 min-w-24 px-3 text-sm" : `h-8 px-2 text-xs ${compact ? "min-w-12 px-1.5" : "min-w-20"}`}`}
           onClick={() => toggleReaction(value)}
         >
-          <Icon size={15} weight={reaction === value ? "fill" : "regular"} />
+          <Icon size={size === "large" ? 18 : 15} weight={reaction === value ? "fill" : "regular"} />
           <span className={compact ? "sr-only" : undefined}>{label}</span>
           {(value === "like" ? counts.likes : counts.dislikes) > 0 ? (
             <span className="font-mono tabular-nums">

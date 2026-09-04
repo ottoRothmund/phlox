@@ -211,10 +211,12 @@ describe("GitHub repository mapping", () => {
     );
     vi.stubGlobal("fetch", fetchMock);
 
-    await searchGitHubRepositories("forge", "relevance");
-    await searchGitHubRepositories("forge", "rising");
-    await searchGitHubRepositories("forge created:>2020-01-01", "rising");
-    await searchGitHubRepositories("forge", "trending");
+    // Topic registration goes through fetch too; keep it out of the mock's calls.
+    const noRegister = vi.fn().mockResolvedValue(undefined);
+    await searchGitHubRepositories("forge", "relevance", 24, noRegister);
+    await searchGitHubRepositories("forge", "rising", 24, noRegister);
+    await searchGitHubRepositories("forge created:>2020-01-01", "rising", 24, noRegister);
+    await searchGitHubRepositories("forge", "trending", 24, noRegister);
 
     const [relevanceUrl, risingUrl, risingPinnedUrl, trendingUrl] =
       fetchMock.mock.calls.map(([url]) => decodeURIComponent(String(url)));

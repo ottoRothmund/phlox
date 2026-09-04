@@ -241,6 +241,14 @@ a {
   background: var(--subtle);
 }
 
+.feed-scroller {
+  scrollbar-width: none;
+}
+
+.feed-scroller::-webkit-scrollbar {
+  display: none;
+}
+
 .save-menu[open] > summary {
   border-color: var(--muted);
   background: var(--subtle);

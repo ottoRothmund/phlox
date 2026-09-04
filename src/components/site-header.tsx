@@ -1,6 +1,6 @@
 "use client";
 
-import { BookmarkSimple, Compass, MagnifyingGlass } from "@phosphor-icons/react";
+import { BookmarkSimple, Compass, MagnifyingGlass, Play } from "@phosphor-icons/react";
 import Image from "next/image";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
@@ -10,6 +10,7 @@ import { AuthMenu } from "@/components/auth-menu";
 import type { SessionUser } from "@/lib/auth";
 
 const links = [
+  { href: "/feed", label: "Feed", icon: Play },
   { href: "/explore", label: "Explore", icon: Compass },
   { href: "/search", label: "Search", icon: MagnifyingGlass },
   { href: "/collections", label: "Collections", icon: BookmarkSimple },

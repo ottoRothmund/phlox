@@ -1,6 +1,7 @@
 import {
   ArrowRight,
   MagnifyingGlass,
+  Play,
 } from "@phosphor-icons/react/dist/ssr";
 import type { Metadata } from "next";
 import Link from "next/link";
@@ -98,6 +99,17 @@ export default async function Home() {
                   ethereum rust
                 </Link>
               </div>
+              <Link
+                href="/feed"
+                className="mt-10 inline-flex items-center gap-3 border border-border bg-background px-4 py-3 text-sm hover:border-muted hover:bg-subtle"
+              >
+                <Play size={14} weight="fill" />
+                <span>
+                  <span className="font-medium">Open the feed</span>
+                  <span className="text-muted"> · one repo at a time, learns what you like</span>
+                </span>
+                <ArrowRight size={14} className="text-muted" />
+              </Link>
             </div>
           </div>
 
