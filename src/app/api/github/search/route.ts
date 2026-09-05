@@ -70,9 +70,17 @@ export async function GET(request: NextRequest) {
   }
 
   const result = await searchRepositories({ query, sort, filters, preferLive: true });
+  // A rate-limited fallback is not worth caching for five minutes at the edge:
+  // the window resets in seconds and the next visitor should get live data.
+  const degraded = result.source === "index";
   return Response.json(result, {
     headers: {
-      "Cache-Control": "public, s-maxage=300, stale-while-revalidate=600",
+      "Cache-Control": degraded
+        ? "public, s-maxage=30, stale-while-revalidate=60"
+        : "public, s-maxage=300, stale-while-revalidate=600",
+      ...(result.retryAfterSeconds
+        ? { "Retry-After": String(result.retryAfterSeconds) }
+        : {}),
     },
   });
 }

@@ -4,6 +4,13 @@ import { mockRepositories } from "@/lib/mock-data";
 import { topicGroups } from "@/lib/repository-taxonomy";
 import { siteUrl } from "@/lib/site";
 
+/**
+ * Rendered per request. Same reason as `robots.ts`: prerendering freezes
+ * `NEXT_PUBLIC_SITE_URL` at build time, and on a container host the origin is
+ * only known at run time. A sitemap full of localhost URLs is worse than none.
+ */
+export const dynamic = "force-dynamic";
+
 export default function sitemap(): MetadataRoute.Sitemap {
   const origin = siteUrl();
   const at = (path: string) => new URL(path, origin).toString();

@@ -6,6 +6,11 @@ import {
   type RepositorySort,
 } from "@/lib/repositories";
 import { registerRepositoryTopics } from "@/lib/phlox-data";
+import {
+  assertGitHubQuota,
+  recordGitHubResponse,
+  type GitHubResource,
+} from "@/lib/github-limits";
 
 export interface GitHubRepositoryApi {
   id: number;
@@ -125,6 +130,26 @@ function githubHeaders(): HeadersInit {
   return headers;
 }
 
+/**
+ * One fetch against api.github.com that keeps the shared budget honest.
+ *
+ * Phlox talks to GitHub with a single server token, so the 30 req/min search
+ * budget is shared by every visitor at once. Skipping the call while we know
+ * the window is spent turns a slow degraded page into a fast one, and reading
+ * the response headers is what teaches us when the window resets.
+ */
+async function githubFetch(
+  resource: GitHubResource,
+  url: string,
+  init: RequestInit & { next?: { revalidate: number } },
+): Promise<Response> {
+  assertGitHubQuota(resource);
+  const response = await fetch(url, { ...init, headers: githubHeaders() });
+  const limitError = recordGitHubResponse(resource, response);
+  if (limitError) throw limitError;
+  return response;
+}
+
 export function buildGitHubSearchQuery(query: string): string {
   const normalized = query.trim().slice(0, MAX_SEARCH_QUERY_LENGTH);
   const hasPublicQualifier = normalized
@@ -231,10 +256,10 @@ export async function searchGitHubRepositories(
   const publicQuery = buildGitHubSearchQuery(
     buildDiscoveryPoolQuery(query, sort),
   );
-  const response = await fetch(
+  const response = await githubFetch(
+    "search",
     `https://api.github.com/search/repositories?q=${encodeURIComponent(publicQuery)}${githubSort}&per_page=${limit}`,
     {
-      headers: githubHeaders(),
       next: { revalidate: 300 },
     },
   );
@@ -260,10 +285,10 @@ export async function getGitHubRepository(
   name: string,
   registerTopics: typeof registerRepositoryTopics = registerRepositoryTopics,
 ): Promise<Repository | null> {
-  const response = await fetch(
+  const response = await githubFetch(
+    "core",
     `https://api.github.com/repos/${encodeURIComponent(owner)}/${encodeURIComponent(name)}`,
     {
-      headers: githubHeaders(),
       next: { revalidate: 300 },
     },
   );
@@ -378,10 +403,10 @@ export async function getGitHubRepositoryReadme(
   owner: string,
   name: string,
 ): Promise<RepositoryReadme | null> {
-  const response = await fetch(
+  const response = await githubFetch(
+    "core",
     `https://api.github.com/repos/${encodeURIComponent(owner)}/${encodeURIComponent(name)}/readme`,
     {
-      headers: githubHeaders(),
       next: { revalidate: 600 },
     },
   );

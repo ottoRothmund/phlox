@@ -3,6 +3,7 @@ import {
   repositoryFilterQualifiers,
   searchGitHubRepositories,
 } from "@/lib/github";
+import { isGitHubRateLimitError } from "@/lib/github-limits";
 import {
   findMockRepository,
   queryMockRepositories,
@@ -43,6 +44,11 @@ export interface RepositorySearchResult {
   source: "github" | "index" | "phlox";
   /** Reaction totals keyed by lower-cased full name, for every result. */
   reactionCounts: Record<string, ReactionCounts>;
+  /**
+   * Seconds until GitHub's shared budget resets, when that is why these
+   * results came from the index instead. Absent on a healthy response.
+   */
+  retryAfterSeconds?: number;
 }
 
 function localFallbackQuery(query: string): string {
@@ -169,6 +175,7 @@ export async function searchRepositories({
   const finish = async (
     pool: Repository[],
     source: RepositorySearchResult["source"],
+    retryAfterSeconds?: number,
   ): Promise<RepositorySearchResult> => {
     const filtered = applyRepositoryFilters(pool, filters);
     const reactionCounts = await loadReactionCounts(
@@ -181,8 +188,11 @@ export async function searchRepositories({
       ),
       source,
       reactionCounts,
+      ...(retryAfterSeconds ? { retryAfterSeconds } : {}),
     };
   };
+
+  let retryAfterSeconds: number | undefined;
 
   if (preferLive && liveQuery.length >= 2) {
     try {
@@ -193,8 +203,12 @@ export async function searchRepositories({
       if (repositories.length > 0) {
         return finish(repositories, "github");
       }
-    } catch {
-      // Public GitHub requests can be rate-limited. The local index keeps search useful.
+    } catch (error) {
+      // Public GitHub requests can be rate-limited. The local index keeps
+      // search useful; the reset time tells the caller when live data returns.
+      if (isGitHubRateLimitError(error)) {
+        retryAfterSeconds = error.retryAfterSeconds;
+      }
     }
   }
 
@@ -209,7 +223,7 @@ export async function searchRepositories({
       .slice(0, limit)
       .map((repository) => registerTopics(repository.fullName, repository.topics)),
   );
-  return finish(repositories, "index");
+  return finish(repositories, "index", retryAfterSeconds);
 }
 
 /**
