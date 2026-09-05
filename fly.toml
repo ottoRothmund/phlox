@@ -13,6 +13,16 @@ primary_region = "sjc"
   auto_start_machines = true
   min_machines_running = 0
 
+  # /api/health reports config presence and GitHub backoff state, so a machine
+  # that booted without GITHUB_TOKEN or Supabase is visible instead of silently
+  # serving the fallback index.
+  [[http_service.checks]]
+    grace_period = "10s"
+    interval = "30s"
+    method = "GET"
+    timeout = "5s"
+    path = "/api/health"
+
 [[vm]]
   size = "shared-cpu-1x"
   memory = "512mb"
