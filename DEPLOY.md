@@ -12,6 +12,20 @@
 
 Supabase: apply the three migrations in `supabase/migrations/` in order, then under Authentication → Providers enable GitHub and Google and add `<origin>/api/auth/callback` to the redirect allow-list.
 
+**Sign-in is currently off in production.** Neither provider is enabled on the
+Supabase project, so `/api/auth/signin/github` redirects correctly and Supabase
+answers `Unsupported provider: provider is not enabled`. Check with:
+
+```bash
+curl -s -H "apikey: $SUPABASE_PUBLISHABLE_KEY" "$SUPABASE_URL/auth/v1/settings"
+```
+
+Every `external.*` flag reads `false`. Turning it on needs an OAuth app on
+GitHub (and a Google OAuth client), each with callback
+`https://<project>.supabase.co/auth/v1/callback`, and their client secrets
+pasted into the Supabase dashboard. Reactions, reviews, search, and the feed all
+work signed-out, so this gates saved collections only.
+
 ## Vercel
 
 ```bash
@@ -24,15 +38,24 @@ vercel env add NEXT_PUBLIC_SITE_URL production
 vercel --prod
 ```
 
-## Fly.io (or any container host)
+## Fly.io — live at https://phlox.fly.dev
 
 ```bash
-fly launch --no-deploy --copy-config --name phlox
-fly secrets set GITHUB_TOKEN=... SUPABASE_URL=... SUPABASE_PUBLISHABLE_KEY=... SUPABASE_WRITE_TOKEN=... NEXT_PUBLIC_SITE_URL=https://phlox.fly.dev
-fly deploy
+fly apps create phlox --org personal
+fly secrets set --stage --app phlox GITHUB_TOKEN=... SUPABASE_URL=... \
+  SUPABASE_PUBLISHABLE_KEY=... SUPABASE_WRITE_TOKEN=... NEXT_PUBLIC_SITE_URL=https://phlox.fly.dev
+fly ips allocate-v4 --shared --app phlox && fly ips allocate-v6 --app phlox
+fly deploy --remote-only --app phlox
 ```
 
-The `Dockerfile` builds a standalone Next.js server (`NEXT_OUTPUT=standalone`). Railway and Render pick it up automatically.
+`fly ips allocate-*` is not optional. A new app gets no addresses, so the deploy
+succeeds, health checks pass, and the hostname does not resolve at all.
+
+## Any other container host
+
+The `Dockerfile` builds a standalone Next.js server (`NEXT_OUTPUT=standalone`).
+Railway and Render pick it up automatically. Supply the same five environment
+variables at run time; the image deliberately contains none of them.
 
 ## Before flipping DNS
 
@@ -41,6 +64,7 @@ npm test && npm run lint && npm run typecheck && npm run build
 curl -sI https://<origin>/explore | grep -iE "x-frame|strict-transport|content-security"
 curl -s https://<origin>/robots.txt          # Sitemap: line must show the real origin
 curl -s https://<origin>/api/health          # every config flag should be true
+curl -s -o /dev/null -w "%{http_code}\n" https://<origin>/repo/deepseek-ai/deepseek-harness
 curl -s "https://<origin>/api/github/search?q=rust&sort=forks" | head -c 300
 python3 scripts/csp-check.py https://<origin>/ https://<origin>/explore
 ```
@@ -63,6 +87,24 @@ site and one that silently serves the fallback index with sign-in switched off.
   ```
   The `redirect_to` inside that URL must be your public origin. Whatever it says
   has to be in Supabase's redirect allow-list too.
+- **A route's static/dynamic mode is decided at build time; the secrets that
+  make it dynamic only exist at run time.** `.dockerignore` excludes `.env*`, so
+  the image is built with no Supabase config. The build skipped the `no-store`
+  Supabase fetch and marked `/` and `/repo/[owner]/[name]` static; the running
+  container had the config, ran that fetch inside a static render, and threw
+  `DYNAMIC_SERVER_USAGE` — 500 on every repository page outside the prerendered
+  set. Every local gate passed, because a local `next build` reads `.env.local`
+  and produces dynamic routes.
+
+  A server page that reads live data exports `dynamic = "force-dynamic"`.
+  Freshness comes from `next: { revalidate }` on the fetches — cache the data,
+  not the page. `src/app/route-rendering.test.ts` enforces this. To see the bug,
+  build without secrets and run with them:
+
+  ```bash
+  env -u SUPABASE_URL -u SUPABASE_PUBLISHABLE_KEY -u SUPABASE_WRITE_TOKEN \
+    -u GITHUB_TOKEN NEXT_OUTPUT=standalone npx next build   # live routes must print ƒ
+  ```
 - **The GitHub search budget is 30 requests/minute for the entire site**, not per
   visitor — one token serves everyone. `src/lib/github-limits.ts` records the
   reset time from GitHub's headers and skips requests it knows will fail, and
