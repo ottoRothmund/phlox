@@ -18,6 +18,15 @@ import { isRepositorySort, type RepositorySort } from "@/lib/repositories";
 
 export const metadata: Metadata = { title: "Explore" };
 
+/**
+ * Rendered per request. It already is, because it reads `searchParams` — but
+ * that is an implicit consequence, not a promise. Declaring it means a future
+ * refactor that stops reading `searchParams` cannot silently make this page
+ * prerender in a secret-less container build and 500 at run time.
+ * See `repo/[owner]/[name]/page.tsx`.
+ */
+export const dynamic = "force-dynamic";
+
 const commonLanguages = ["Rust", "Go", "TypeScript", "Python", "Nix", "Zig"];
 
 export default async function ExplorePage({

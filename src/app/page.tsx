@@ -17,6 +17,18 @@ export const metadata: Metadata = {
   title: "Discover remarkable repositories",
 };
 
+/**
+ * Rendered per request. See the note in `repo/[owner]/[name]/page.tsx`:
+ * whether a route prerenders is decided at build time, but the container image
+ * is built without secrets, so the build sees no Supabase config and freezes
+ * this page — then the running container, which does have the config, throws
+ * `DYNAMIC_SERVER_USAGE` on the `no-store` Supabase read.
+ *
+ * Beyond the crash, a home page prerendered from a token-less build ships the
+ * fallback index while the status dot claims "live from GitHub".
+ */
+export const dynamic = "force-dynamic";
+
 export default async function Home() {
   const [result, smallResult, discoveredTopics] = await Promise.all([
     searchRepositories({

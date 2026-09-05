@@ -16,7 +16,6 @@ import { RepositoryReaction } from "@/components/repository-reaction";
 import { RepositoryReviews } from "@/components/repository-reviews";
 import { SaveRepositoryButton } from "@/components/save-repository-button";
 import { getGitHubRepositoryReadme } from "@/lib/github";
-import { mockRepositories } from "@/lib/mock-data";
 import {
   getRepositoryReactionCounts,
   getRepositoryReviews,
@@ -56,12 +55,25 @@ function formatDate(value: string): string {
   }).format(new Date(value));
 }
 
-export async function generateStaticParams() {
-  return mockRepositories.slice(0, 8).map((repository) => ({
-    owner: repository.owner,
-    name: repository.name,
-  }));
-}
+/**
+ * Rendered per request, never prerendered.
+ *
+ * This page reads GitHub and Supabase, and Supabase is fetched `no-store`.
+ * Whether a route is static is decided at BUILD time, but the secrets that
+ * make those fetches run only exist at RUN time — the Docker image is built
+ * without `.env.local` (`.dockerignore`). So the build saw no Supabase config,
+ * skipped the fetch, and marked the page static; the running container had the
+ * config, ran the `no-store` fetch inside a static render, and every repo page
+ * outside the prerendered set died with `DYNAMIC_SERVER_USAGE` → 500.
+ *
+ * A `generateStaticParams` list made it worse: it baked eight repos' HTML from
+ * a build with no `GITHUB_TOKEN`, so those pages shipped frozen fallback data
+ * while claiming to be live.
+ *
+ * Freshness still comes from the data layer — `github.ts` fetches carry
+ * `next: { revalidate }`. Cache the data, not the page.
+ */
+export const dynamic = "force-dynamic";
 
 export default async function RepositoryPage({
   params,
