@@ -48,8 +48,12 @@ fly ips allocate-v4 --shared --app phlox && fly ips allocate-v6 --app phlox
 fly deploy --remote-only --app phlox
 ```
 
-`fly ips allocate-*` is not optional. A new app gets no addresses, so the deploy
-succeeds, health checks pass, and the hostname does not resolve at all.
+`fly ips allocate-*` is not optional. flyctl tries to provision addresses on the
+first deploy and fails on its own request — `error allocating ipv6 ... org_slug
+is only supported with private_v6 type` — then exits 0 and prints "Visit your
+newly deployed app". The app is deployed and health checks pass while the
+hostname resolves to nothing. `fly ips list` must show a v4 and a v6 before any
+curl against the public hostname means anything.
 
 ## Any other container host
 
