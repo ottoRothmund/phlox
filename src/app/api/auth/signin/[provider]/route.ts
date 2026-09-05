@@ -1,6 +1,12 @@
 import { NextResponse } from "next/server";
 
-import { authConfig, authorizeUrl, isAuthProvider, isSafeRedirect } from "@/lib/auth";
+import {
+  authConfig,
+  authorizeUrl,
+  callbackUrl,
+  isAuthProvider,
+  isSafeRedirect,
+} from "@/lib/auth";
 
 export async function GET(
   request: Request,
@@ -18,7 +24,9 @@ export async function GET(
 
   const requested = new URL(request.url).searchParams.get("next") || "/";
   const next = isSafeRedirect(requested) ? requested : "/";
-  const callback = new URL("/api/auth/callback", request.url).toString();
+  // Not `new URL(..., request.url)`: behind a proxy that is the container's
+  // internal address, and Supabase would send the user back to localhost.
+  const callback = callbackUrl(request);
 
   return NextResponse.redirect(authorizeUrl(config, provider, callback, next));
 }

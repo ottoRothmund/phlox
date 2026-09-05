@@ -35,6 +35,49 @@ export function isSafeRedirect(value: string): boolean {
   return value.startsWith("/") && !value.startsWith("//");
 }
 
+/**
+ * Public origin for a request, as the browser sees it.
+ *
+ * `request.url` is the origin the Node server itself is listening on, which
+ * behind a reverse proxy (Fly, Railway, Cloudflare, nginx) is an internal
+ * address like `http://localhost:3000`. Using it for an OAuth callback sends
+ * the user to a host that only exists inside the container.
+ *
+ * Order: the configured canonical origin wins, then the proxy's forwarded
+ * headers, then whatever the request itself claims.
+ */
+export function publicOrigin(request: Request): string {
+  const configured = process.env.NEXT_PUBLIC_SITE_URL?.trim();
+  if (configured) {
+    try {
+      return new URL(configured).origin;
+    } catch {
+      // Fall through; a malformed env var should not break sign-in.
+    }
+  }
+
+  const forwardedHost =
+    request.headers.get("x-forwarded-host") || request.headers.get("host");
+  if (forwardedHost) {
+    // Take the first value: proxies chain these as a comma-separated list.
+    const host = forwardedHost.split(",")[0]?.trim();
+    const proto =
+      request.headers.get("x-forwarded-proto")?.split(",")[0]?.trim() ||
+      (host?.startsWith("localhost") || host?.startsWith("127.0.0.1")
+        ? "http"
+        : "https");
+    if (host && /^[a-z0-9.:_-]+$/i.test(host)) {
+      return `${proto}://${host}`;
+    }
+  }
+
+  return new URL(request.url).origin;
+}
+
+export function callbackUrl(request: Request): string {
+  return new URL("/api/auth/callback", publicOrigin(request)).toString();
+}
+
 export function authorizeUrl(
   config: AuthConfig,
   provider: AuthProvider,

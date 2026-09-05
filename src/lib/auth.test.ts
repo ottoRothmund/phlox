@@ -1,9 +1,11 @@
-import { describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it } from "vitest";
 
 import {
   authorizeUrl,
+  callbackUrl,
   isSafeRedirect,
   parseSessionUser,
+  publicOrigin,
   supportedProviders,
 } from "@/lib/auth";
 
@@ -74,5 +76,88 @@ describe("auth", () => {
   it("returns null for a malformed user payload", () => {
     expect(parseSessionUser(null)).toBeNull();
     expect(parseSessionUser({ email: "no-id@example.com" })).toBeNull();
+  });
+});
+
+describe("publicOrigin", () => {
+  const original = process.env.NEXT_PUBLIC_SITE_URL;
+
+  afterEach(() => {
+    if (original === undefined) delete process.env.NEXT_PUBLIC_SITE_URL;
+    else process.env.NEXT_PUBLIC_SITE_URL = original;
+  });
+
+  function request(url: string, headers: Record<string, string> = {}): Request {
+    return new Request(url, { headers });
+  }
+
+  it("prefers the configured canonical origin over the request", () => {
+    process.env.NEXT_PUBLIC_SITE_URL = "https://phlox.example";
+    // The server listens on an internal port; the browser never sees it.
+    expect(publicOrigin(request("http://localhost:3000/api/auth/signin/github"))).toBe(
+      "https://phlox.example",
+    );
+  });
+
+  it("uses forwarded proxy headers when no origin is configured", () => {
+    delete process.env.NEXT_PUBLIC_SITE_URL;
+    expect(
+      publicOrigin(
+        request("http://localhost:3000/api/auth/signin/github", {
+          "x-forwarded-host": "phlox.example",
+          "x-forwarded-proto": "https",
+        }),
+      ),
+    ).toBe("https://phlox.example");
+  });
+
+  it("takes the first entry when a proxy chain appends values", () => {
+    delete process.env.NEXT_PUBLIC_SITE_URL;
+    expect(
+      publicOrigin(
+        request("http://localhost:3000/x", {
+          "x-forwarded-host": "phlox.example, internal.fly.dev",
+          "x-forwarded-proto": "https, http",
+        }),
+      ),
+    ).toBe("https://phlox.example");
+  });
+
+  it("assumes https for a forwarded host with no proto header", () => {
+    delete process.env.NEXT_PUBLIC_SITE_URL;
+    expect(
+      publicOrigin(request("http://localhost:3000/x", { host: "phlox.example" })),
+    ).toBe("https://phlox.example");
+  });
+
+  it("keeps http for local development", () => {
+    delete process.env.NEXT_PUBLIC_SITE_URL;
+    expect(
+      publicOrigin(request("http://localhost:3000/x", { host: "localhost:3000" })),
+    ).toBe("http://localhost:3000");
+  });
+
+  it("ignores a header that is not a plausible host", () => {
+    delete process.env.NEXT_PUBLIC_SITE_URL;
+    // A junk Host header must not become the OAuth callback origin.
+    expect(
+      publicOrigin(
+        request("http://localhost:3000/x", { "x-forwarded-host": "evil.example/path" }),
+      ),
+    ).toBe("http://localhost:3000");
+  });
+
+  it("survives a malformed NEXT_PUBLIC_SITE_URL", () => {
+    process.env.NEXT_PUBLIC_SITE_URL = "not a url";
+    expect(
+      publicOrigin(request("http://localhost:3000/x", { host: "phlox.example" })),
+    ).toBe("https://phlox.example");
+  });
+
+  it("builds the OAuth callback on the public origin", () => {
+    process.env.NEXT_PUBLIC_SITE_URL = "https://phlox.example";
+    expect(callbackUrl(new Request("http://localhost:3000/api/auth/signin/github"))).toBe(
+      "https://phlox.example/api/auth/callback",
+    );
   });
 });
